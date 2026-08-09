@@ -161,8 +161,32 @@
                 <div class="color-options" id="newItemColorPicker"></div>
               </div>
               <button id="addItemBtn">新增</button>
-              <button id="addAndApplyBtn" class="btn-secondary">新增並套用到全月</button>
+              <button id="addAndApplyBtn" class="btn-secondary">新增並套用到多天…</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 套用範圍彈窗 -->
+      <div id="applyScopeModal" class="modal hidden">
+        <div class="modal-content">
+          <span class="modal-close" id="closeApplyScopeModal">&times;</span>
+          <h3>套用範圍</h3>
+          <div class="modal-body">
+            <p id="applyScopeTarget" class="apply-scope-target"></p>
+
+            <div class="apply-preset-group" id="applyPresetGroup">
+              <button class="apply-preset" data-preset="all">整月</button>
+              <button class="apply-preset" data-preset="weekday">平日</button>
+              <button class="apply-preset" data-preset="weekend">假日</button>
+              <button class="apply-preset" data-preset="custom">自訂</button>
+            </div>
+
+            <div class="weekday-picker" id="weekdayPicker"></div>
+
+            <p id="applyScopePreview" class="apply-scope-preview"></p>
+
+            <button id="confirmApplyScopeBtn">確定套用</button>
           </div>
         </div>
       </div>

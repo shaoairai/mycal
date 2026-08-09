@@ -867,7 +867,7 @@ function renderItemsList() {
             <div class="item-actions">
                 <button class="item-apply" data-id="${itemId}" data-text="${
       item.text
-    }" data-color="${item.color || ""}" title="套用到全月">📅</button>
+    }" data-color="${item.color || ""}" title="套用到多天">📅</button>
                 <button class="item-edit" data-id="${itemId}" data-text="${
       item.text
     }" data-color="${item.color || ""}" title="編輯">✎</button>
@@ -922,12 +922,12 @@ function renderItemsList() {
     });
   });
 
-  // 綁定套用到全月事件
+  // 綁定套用到多天事件
   itemsList.querySelectorAll(".item-apply").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const itemText = e.target.dataset.text;
       const itemColor = e.target.dataset.color;
-      applyItemToMonth(itemText, itemColor);
+      openApplyScopeModal(itemText, itemColor);
     });
   });
 
@@ -1070,8 +1070,8 @@ editItemColorPicker.querySelectorAll(".color-option").forEach((option) => {
   });
 });
 
-// 新增並套用到全月
-addAndApplyBtn.addEventListener("click", async () => {
+// 新增並套用到多天
+addAndApplyBtn.addEventListener("click", () => {
   if (!currentUser || !selectedDate) return;
 
   const text = newItemInput.value.trim();
@@ -1080,49 +1080,7 @@ addAndApplyBtn.addEventListener("click", async () => {
     return;
   }
 
-  const confirmApply = confirm(
-    `確定要將「${text}」新增到 ${currentYear} 年 ${
-      currentMonth + 1
-    } 月的所有日期嗎？`
-  );
-  if (!confirmApply) return;
-
-  try {
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const updates = {};
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateKey = getDateKey(currentYear, currentMonth, day);
-      const newItemId = Date.now().toString() + "_" + day;
-
-      // 計算該日的最大 order
-      const dayItems = dailyGoalsData[dateKey]?.items || {};
-      const maxOrder = Object.values(dayItems).reduce((max, item) => {
-        return Math.max(max, item.order ?? 0);
-      }, -1);
-
-      const itemData = {
-        text: text,
-        completed: false,
-        order: maxOrder + 1,
-      };
-      if (selectedNewItemColor && selectedNewItemColor !== "blue") {
-        itemData.color = selectedNewItemColor;
-      }
-      updates[`${dateKey}/items/${newItemId}`] = itemData;
-    }
-
-    const dailyGoalsRef = ref(db, `users/${currentUser}/dailyGoals`);
-    await update(dailyGoalsRef, updates);
-
-    newItemInput.value = "";
-    alert(
-      `已成功將「${text}」新增到 ${currentMonth + 1} 月全部 ${daysInMonth} 天！`
-    );
-  } catch (error) {
-    console.error("套用失敗:", error);
-    alert("套用失敗，請稍後再試");
-  }
+  openApplyScopeModal(text, selectedNewItemColor, true);
 });
 
 // ==================== 拖曳功能 ====================
@@ -1268,63 +1226,185 @@ function formatDateDisplay(dateKey) {
   return `${parseInt(month)}/${parseInt(day)}`;
 }
 
-// 套用單一項目到全月（從現有項目）
-async function applyItemToMonth(text, color) {
-  if (!currentUser) return;
+// ==================== 套用範圍（整月／平日／假日／指定星期） ====================
 
-  const confirmApply = confirm(
-    `確定要將「${text}」套用到 ${currentYear} 年 ${
-      currentMonth + 1
-    } 月的所有日期嗎？\n\n（已有相同項目的日期會跳過）`
+const applyScopeModal = document.getElementById("applyScopeModal");
+const closeApplyScopeModal = document.getElementById("closeApplyScopeModal");
+const applyScopeTarget = document.getElementById("applyScopeTarget");
+const applyPresetGroup = document.getElementById("applyPresetGroup");
+const weekdayPicker = document.getElementById("weekdayPicker");
+const applyScopePreview = document.getElementById("applyScopePreview");
+const confirmApplyScopeBtn = document.getElementById("confirmApplyScopeBtn");
+
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+const APPLY_PRESETS = {
+  all: [0, 1, 2, 3, 4, 5, 6],
+  weekday: [1, 2, 3, 4, 5],
+  weekend: [0, 6],
+};
+
+// 目前要套用的項目 { text, color, clearInput }
+let applyScopeContext = null;
+let selectedWeekdays = new Set(APPLY_PRESETS.all);
+
+// 建立星期選擇器
+WEEKDAY_LABELS.forEach((label, dayOfWeek) => {
+  const chip = document.createElement("button");
+  chip.className = "weekday-chip";
+  chip.dataset.day = dayOfWeek;
+  chip.textContent = label;
+  chip.addEventListener("click", () => {
+    if (selectedWeekdays.has(dayOfWeek)) {
+      selectedWeekdays.delete(dayOfWeek);
+    } else {
+      selectedWeekdays.add(dayOfWeek);
+    }
+    renderApplyScope();
+  });
+  weekdayPicker.appendChild(chip);
+});
+
+// 依選到的星期，統計當月會新增幾天
+function countApplyTargets(text) {
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  let willAdd = 0;
+  let skipped = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
+    if (!selectedWeekdays.has(dayOfWeek)) continue;
+
+    const dateKey = getDateKey(currentYear, currentMonth, day);
+    const items = dailyGoalsData[dateKey]?.items || {};
+    if (Object.values(items).some((item) => item.text === text)) {
+      skipped++;
+    } else {
+      willAdd++;
+    }
+  }
+
+  return { willAdd, skipped };
+}
+
+// 找出目前選擇對應哪個預設（找不到就是「自訂」）
+function matchedPreset() {
+  return (
+    Object.keys(APPLY_PRESETS).find((preset) => {
+      const days = APPLY_PRESETS[preset];
+      return (
+        days.length === selectedWeekdays.size &&
+        days.every((d) => selectedWeekdays.has(d))
+      );
+    }) || "custom"
   );
-  if (!confirmApply) return;
+}
+
+function renderApplyScope() {
+  const preset = matchedPreset();
+  applyPresetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.preset === preset);
+  });
+
+  weekdayPicker.querySelectorAll(".weekday-chip").forEach((chip) => {
+    chip.classList.toggle("on", selectedWeekdays.has(Number(chip.dataset.day)));
+  });
+
+  if (!applyScopeContext) return;
+
+  const { willAdd, skipped } = countApplyTargets(applyScopeContext.text);
+  const skipText = skipped > 0 ? `，另有 ${skipped} 天已存在會跳過` : "";
+  applyScopePreview.textContent =
+    selectedWeekdays.size === 0
+      ? "請至少選擇一個星期"
+      : `將新增到 ${willAdd} 天${skipText}`;
+  confirmApplyScopeBtn.disabled = willAdd === 0;
+}
+
+// 開啟套用範圍彈窗
+function openApplyScopeModal(text, color, clearInput = false) {
+  applyScopeContext = { text, color, clearInput };
+  applyScopeTarget.innerHTML = `將「<strong>${text}</strong>」套用到 ${currentYear} 年 ${
+    currentMonth + 1
+  } 月的：`;
+  selectedWeekdays = new Set(APPLY_PRESETS.all);
+  renderApplyScope();
+  applyScopeModal.classList.remove("hidden");
+}
+
+function closeApplyScope() {
+  applyScopeModal.classList.add("hidden");
+  applyScopeContext = null;
+}
+
+closeApplyScopeModal.addEventListener("click", closeApplyScope);
+applyScopeModal.addEventListener("click", (e) => {
+  if (e.target === applyScopeModal) closeApplyScope();
+});
+
+applyPresetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const preset = btn.dataset.preset;
+    // 「自訂」只是狀態顯示，不改變目前選擇
+    if (preset === "custom") return;
+    selectedWeekdays = new Set(APPLY_PRESETS[preset]);
+    renderApplyScope();
+  });
+});
+
+confirmApplyScopeBtn.addEventListener("click", async () => {
+  if (!applyScopeContext || !currentUser) return;
+
+  const { text, color, clearInput } = applyScopeContext;
 
   try {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const baseId = Date.now().toString();
     const updates = {};
     let addedCount = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
+      const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
+      if (!selectedWeekdays.has(dayOfWeek)) continue;
+
       const dateKey = getDateKey(currentYear, currentMonth, day);
-      const data = dailyGoalsData[dateKey];
-      const items = data?.items || {};
+      const items = dailyGoalsData[dateKey]?.items || {};
 
-      // 檢查該日是否已有相同名稱的項目
-      const hasItem = Object.values(items).some((item) => item.text === text);
-      if (!hasItem) {
-        // 計算該日的最大 order
-        const maxOrder = Object.values(items).reduce((max, item) => {
-          return Math.max(max, item.order ?? 0);
-        }, -1);
+      // 該日已有相同名稱的項目就跳過
+      if (Object.values(items).some((item) => item.text === text)) continue;
 
-        const newItemId = Date.now().toString() + "_" + day;
-        const itemData = {
-          text: text,
-          completed: false,
-          order: maxOrder + 1,
-        };
-        if (color && color !== "blue") {
-          itemData.color = color;
-        }
-        updates[`${dateKey}/items/${newItemId}`] = itemData;
-        addedCount++;
+      // 計算該日的最大 order
+      const maxOrder = Object.values(items).reduce((max, item) => {
+        return Math.max(max, item.order ?? 0);
+      }, -1);
+
+      const itemData = {
+        text: text,
+        completed: false,
+        order: maxOrder + 1,
+      };
+      if (color && color !== "blue") {
+        itemData.color = color;
       }
+      updates[`${dateKey}/items/${baseId}_${day}`] = itemData;
+      addedCount++;
     }
 
     if (addedCount === 0) {
-      alert("所有日期都已有此項目");
+      alert("選到的日期都已有此項目");
       return;
     }
 
     const dailyGoalsRef = ref(db, `users/${currentUser}/dailyGoals`);
     await update(dailyGoalsRef, updates);
 
+    if (clearInput) newItemInput.value = "";
+    closeApplyScope();
     alert(`已成功將「${text}」新增到 ${addedCount} 天！`);
   } catch (error) {
     console.error("套用失敗:", error);
     alert("套用失敗，請稍後再試");
   }
-}
+});
 
 // ==================== 編輯項目功能 ====================
 

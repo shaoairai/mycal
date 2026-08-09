@@ -1312,7 +1312,7 @@ body {
     background: var(--success-hover);
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit) {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip) {
     width: 100%;
     padding: 12px;
     background: var(--primary);
@@ -1325,7 +1325,7 @@ body {
     transition: background 0.2s;
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):hover {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):hover {
     background: var(--primary-hover);
 }
 
@@ -1594,6 +1594,105 @@ body {
 
 .edit-buttons button.btn-secondary:hover {
     background: var(--success-hover);
+}
+
+/* ==================== 套用範圍彈窗 ==================== */
+.apply-scope-target {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.apply-scope-target strong {
+    color: var(--text-primary);
+}
+
+.apply-preset-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.apply-preset {
+    flex: 1;
+    padding: 10px 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.apply-preset:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.apply-preset.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-on-primary);
+    font-weight: 500;
+}
+
+/* 「自訂」只反映狀態，不可點 */
+.apply-preset[data-preset="custom"] {
+    cursor: default;
+}
+
+.apply-preset[data-preset="custom"]:hover {
+    background: var(--bg-card);
+    color: var(--text-secondary);
+}
+
+.apply-preset[data-preset="custom"].active:hover {
+    background: var(--primary);
+    color: var(--text-on-primary);
+}
+
+.weekday-picker {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.weekday-chip {
+    flex: 1;
+    aspect-ratio: 1;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.weekday-chip:hover {
+    border-color: var(--primary);
+    color: var(--text-primary);
+}
+
+.weekday-chip.on {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.apply-scope-preview {
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+#confirmApplyScopeBtn:disabled {
+    background: var(--border);
+    cursor: not-allowed;
 }
 
 /* ==================== 套用區 ==================== */
