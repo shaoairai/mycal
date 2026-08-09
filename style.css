@@ -124,71 +124,238 @@ body {
     text-align: center;
 }
 
+/* ==================== 主頁面骨架 ==================== */
+#mainPage:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.app-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
 /* ==================== 頂部導覽 ==================== */
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    gap: 12px;
+    padding: 10px 16px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
+    flex-shrink: 0;
     z-index: 100;
 }
 
 .header-left {
-    font-size: 14px;
-    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
 }
 
-.header-center h1 {
-    font-size: 1.25rem;
+.header .brand {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary);
+    letter-spacing: 0.5px;
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text-secondary);
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.icon-btn:hover {
+    background: var(--bg-hover);
+}
+
+.month-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.month-nav h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.today-btn {
+    white-space: nowrap;
+    padding: 7px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.today-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--primary);
+}
+
+.nav-arrow {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--text-secondary);
+    transition: background 0.2s;
+}
+
+.nav-arrow:hover {
+    background: var(--bg-hover);
     color: var(--text-primary);
 }
 
 .header-right {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
 }
 
-.header-right button {
-    padding: 8px 16px;
+/* 下拉面板 */
+.nav-dropdown {
+    position: relative;
+}
+
+.nav-btn {
+    padding: 8px 14px;
     background: var(--bg-muted);
     border: none;
     border-radius: 8px;
     cursor: pointer;
     color: var(--text-secondary);
     font-size: 14px;
+    white-space: nowrap;
     transition: all 0.2s;
 }
 
-.header-right button:hover {
+.nav-btn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
 
-/* ==================== 年度目標區 ==================== */
-.yearly-goal-section {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px 20px 0;
+.nav-btn.active {
+    background: var(--primary-soft);
+    color: var(--primary);
 }
 
-.yearly-goal-card {
-    background: var(--bg-card);
-    padding: 24px;
-    border-radius: 16px;
-    box-shadow: var(--shadow-md);
-}
-
-.yearly-goal-card h3 {
-    font-size: 1.1rem;
-    color: var(--text-primary);
-    margin-bottom: 16px;
+.progress-chip span {
     font-weight: 600;
+    color: var(--primary);
 }
 
+.nav-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    padding: 16px;
+    z-index: 200;
+}
+
+.nav-panel h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.nav-menu {
+    width: 220px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nav-menu .menu-user {
+    padding: 8px 12px 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 4px;
+}
+
+.nav-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-primary);
+    transition: background 0.2s;
+}
+
+.nav-menu button:hover {
+    background: var(--bg-hover);
+}
+
+.nav-menu button.menu-danger {
+    color: #C45C4A;
+}
+
+.nav-menu button.menu-danger:hover {
+    background: rgba(196, 92, 74, 0.1);
+}
+
+/* 達成率面板 */
+.progress-bar {
+    height: 10px;
+    background: var(--bg-muted);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0;
+    background: var(--primary);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+/* ==================== 年度目標（導覽列面板內） ==================== */
 .year-goals-list {
     display: flex;
     flex-direction: column;
@@ -311,14 +478,15 @@ body {
 
 .year-goal-input-area {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 10px;
-    align-items: center;
+    align-items: stretch;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-light);
 }
 
 .year-goal-input-area input[type="text"] {
-    flex: 1;
-    min-width: 200px;
+    width: 100%;
     padding: 10px 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -357,78 +525,119 @@ body {
     background: var(--primary-hover);
 }
 
-/* ==================== 目標設定區 ==================== */
-.goals-section {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 16px;
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.goal-card {
+/* ==================== 左側欄 ==================== */
+.sidebar {
+    width: 260px;
+    flex-shrink: 0;
     background: var(--bg-card);
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: var(--shadow-md);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 }
 
-.goal-card h3 {
-    font-size: 1rem;
+.app-body.sidebar-hidden .sidebar {
+    display: none;
+}
+
+.sidebar-block h3 {
+    font-size: 0.95rem;
     color: var(--text-primary);
     margin-bottom: 12px;
     font-weight: 600;
 }
 
-.goal-input-group {
+.sidebar-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.sidebar-backdrop {
+    display: none;
+}
+
+/* 顏色主題清單 */
+.color-theme-list {
     display: flex;
-    gap: 8px;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.goal-input-group input {
-    flex: 1;
-    padding: 10px 12px;
-    border: 1px solid var(--border);
+.color-theme-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
     border-radius: 8px;
-    font-size: 14px;
-    background: var(--bg-card);
-    color: var(--text-primary);
-    transition: border-color 0.2s;
-}
-
-.goal-input-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-}
-
-.goal-input-group button {
-    padding: 10px 16px;
-    background: var(--primary);
-    color: var(--text-on-primary);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
     transition: background 0.2s;
 }
 
-.goal-input-group button:hover {
-    background: var(--primary-hover);
+.color-theme-row:hover {
+    background: var(--bg-hover);
+}
+
+.color-theme-row.off .color-theme-name,
+.color-theme-row.off .color-theme-dot {
+    opacity: 0.4;
+}
+
+.color-theme-check {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.color-theme-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.color-theme-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.color-theme-name:hover {
+    text-decoration: underline;
+}
+
+.color-theme-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.color-theme-input:focus {
+    outline: none;
 }
 
 /* 月目標輸入區 */
 .month-goal-input-area {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 10px;
-    align-items: center;
+    align-items: stretch;
 }
 
 .month-goal-input-area input[type="text"] {
-    flex: 1;
-    min-width: 150px;
+    width: 100%;
     padding: 10px 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -481,13 +690,9 @@ body {
 }
 
 /* 目標項目列表 */
-.goal-card-large {
-    min-height: 150px;
-}
-
 .goal-items-list {
     margin-bottom: 12px;
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
@@ -598,38 +803,9 @@ body {
 .goal-item-row.color-pink:hover { background: linear-gradient(135deg, rgba(233,30,99,0.12) 0%, rgba(233,30,99,0.22) 100%); }
 .goal-item-row.color-gray:hover { background: linear-gradient(135deg, rgba(127,140,141,0.12) 0%, rgba(127,140,141,0.22) 100%); }
 
-/* ==================== 達成率卡片 ==================== */
-.progress-card .progress-display {
-    text-align: center;
-    padding: 20px;
-}
-
-.progress-card #progressRate {
-    font-size: 3rem;
-    font-weight: bold;
-    color: var(--primary);
-}
-
 .progress-detail {
-    text-align: center;
-    font-size: 14px;
-    color: var(--text-secondary);
-}
-
-.delete-all-btn {
-    padding: 8px 16px;
-    background: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 6px;
     font-size: 13px;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-}
-
-.delete-all-btn:hover {
-    background: #c0392b;
-    transform: scale(1.02);
+    color: var(--text-secondary);
 }
 
 /* ==================== 其他人日曆區 ==================== */
@@ -786,40 +962,12 @@ body {
 
 /* ==================== 月曆區 ==================== */
 .calendar-section {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px;
-    padding-bottom: 8rem;
-}
-
-.calendar-header {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.calendar-header h2 {
-    font-size: 1.5rem;
-    color: var(--text-primary);
-    font-weight: 600;
-}
-
-.calendar-header button {
-    padding: 10px 20px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-}
-
-.calendar-header button:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    border-color: var(--primary);
+    flex-direction: column;
+    padding: 12px 16px 16px;
 }
 
 .calendar-weekdays {
@@ -828,14 +976,15 @@ body {
     background: var(--bg-card);
     border-radius: 12px 12px 0 0;
     box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
 }
 
 .calendar-weekdays div {
-    padding: 12px;
+    padding: 10px;
     text-align: center;
     font-weight: 500;
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .calendar-weekdays div:first-child {
@@ -849,21 +998,27 @@ body {
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
     background: var(--bg-card);
     border-radius: 0 0 12px 12px;
     box-shadow: var(--shadow-md);
-    table-layout: fixed;
+    overflow: hidden;
 }
 
 .calendar-day {
-    min-height: 80px;
-    padding: 8px;
+    min-height: 0;
+    padding: 6px;
     border: 1px solid var(--border-light);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s;
     position: relative;
     min-width: 0;
     background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .calendar-day:hover {
@@ -880,9 +1035,10 @@ body {
 }
 
 .calendar-day .day-number {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
+    flex-shrink: 0;
 }
 
 .calendar-day.sunday .day-number {
@@ -923,6 +1079,18 @@ body {
     gap: 2px;
     margin-top: 4px;
     min-width: 0;
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.calendar-day .day-items::-webkit-scrollbar {
+    width: 4px;
+}
+
+.calendar-day .day-items::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
 }
 
 .calendar-day .day-item {
@@ -936,6 +1104,7 @@ body {
     min-width: 0;
     max-width: 100%;
     display: block;
+    flex-shrink: 0;
     transition: opacity 0.2s;
 }
 
@@ -1368,6 +1537,7 @@ body {
 
 .color-options {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
 }
 
@@ -1782,52 +1952,78 @@ body {
     padding: 12px;
 }
 
-/* ==================== RWD 手機版 ==================== */
+/* ==================== RWD 平板／手機 ==================== */
+
+/* 窄畫面時側邊欄改為浮動抽屜 */
+@media (max-width: 900px) {
+    .sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 150;
+        width: 260px;
+        box-shadow: var(--shadow-lg);
+    }
+
+    .app-body:not(.sidebar-hidden) .sidebar-backdrop {
+        display: block;
+        position: absolute;
+        inset: 0;
+        background: rgba(58, 58, 58, 0.35);
+        z-index: 140;
+    }
+}
+
 @media (max-width: 600px) {
     .header {
-        flex-direction: column;
-        gap: 10px;
-        text-align: center;
+        padding: 8px 10px;
+        gap: 6px;
     }
 
-    .header-left, .header-right {
-        width: 100%;
-        display: flex;
-        justify-content: center;
+    .header .brand {
+        display: none;
     }
 
-    .yearly-goal-section {
-        padding: 12px 12px 0;
+    .header-left {
+        gap: 4px;
     }
 
-    .yearly-goal-card {
-        padding: 16px;
+    .month-nav h2 {
+        font-size: 1rem;
+        margin-left: 4px;
     }
 
-    .year-goal-input-area {
-        flex-direction: column;
-        align-items: stretch;
+    .today-btn {
+        padding: 6px 10px;
+        font-size: 12px;
     }
 
-    .year-goal-input-area input[type="text"] {
-        min-width: auto;
+    .nav-btn {
+        padding: 7px 10px;
+        font-size: 13px;
     }
 
-    .goals-section {
-        padding: 12px;
+    /* 年度目標按鈕只留圖示，省空間 */
+    .nav-btn-text {
+        display: none;
     }
 
-    .goal-card {
-        padding: 16px;
+    .nav-panel {
+        width: min(320px, calc(100vw - 20px));
     }
 
     .calendar-section {
-        padding: 12px;
+        padding: 8px;
+    }
+
+    .calendar-weekdays div {
+        padding: 8px 2px;
+        font-size: 12px;
     }
 
     .calendar-day {
-        min-height: 60px;
-        padding: 4px;
+        padding: 3px;
     }
 
     .calendar-day .day-number {
@@ -1835,26 +2031,13 @@ body {
     }
 
     .calendar-day.today .day-number {
-        width: 24px;
-        height: 24px;
-    }
-
-    .calendar-day .day-items {
-        display: flex;
+        width: 22px;
+        height: 22px;
     }
 
     .calendar-day .day-item {
         font-size: 9px;
         padding: 1px 3px;
-    }
-
-    .calendar-header button {
-        padding: 8px 12px;
-        font-size: 12px;
-    }
-
-    .calendar-header h2 {
-        font-size: 1.2rem;
     }
 
     .stats-months {

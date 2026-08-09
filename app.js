@@ -60,8 +60,15 @@ const progressDetail = document.getElementById("progressDetail");
 
 const prevMonthBtn = document.getElementById("prevMonthBtn");
 const nextMonthBtn = document.getElementById("nextMonthBtn");
+const todayBtn = document.getElementById("todayBtn");
 const calendarTitle = document.getElementById("calendarTitle");
 const calendarGrid = document.getElementById("calendarGrid");
+
+const appBody = document.querySelector(".app-body");
+const sidebarToggle = document.getElementById("sidebarToggle");
+const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+const progressBarFill = document.getElementById("progressBarFill");
+const yearGoalsPanelTitle = document.getElementById("yearGoalsPanelTitle");
 
 const dailyModal = document.getElementById("dailyModal");
 const closeModal = document.getElementById("closeModal");
@@ -139,6 +146,233 @@ let draggedMonthGoal = null;
 let selectedNewItemColor = "blue";
 let selectedEditItemColor = "blue";
 let selectedYearGoalColor = "blue";
+
+// ==================== 顏色主題 ====================
+
+// 8 種顏色的定義（色碼需與 style.css 的 .item-color-* 一致）
+const COLOR_DEFS = [
+  { key: "blue", hex: "#3498DB", label: "藍色" },
+  { key: "red", hex: "#E74C3C", label: "紅色" },
+  { key: "orange", hex: "#E67E22", label: "橘色" },
+  { key: "yellow", hex: "#F1C40F", label: "黃色" },
+  { key: "cyan", hex: "#1ABC9C", label: "青色" },
+  { key: "purple", hex: "#9B59B6", label: "紫色" },
+  { key: "pink", hex: "#E91E63", label: "粉色" },
+  { key: "gray", hex: "#7F8C8D", label: "灰色" },
+];
+
+const colorThemeList = document.getElementById("colorThemeList");
+
+// 使用者自訂的顏色主題名稱 { blue: "運動", ... }
+let colorThemeNames = {};
+
+// 目前隱藏的顏色（僅影響日曆顯示，存在本機）
+let hiddenColors = new Set();
+
+function getColorLabel(key) {
+  const def = COLOR_DEFS.find((c) => c.key === key);
+  return colorThemeNames[key] || def?.label || key;
+}
+
+// 產生所有顏色選擇器的色票（必須在下方的點擊監聽註冊之前執行）
+function buildColorPickers() {
+  const pickers = [
+    newItemColorPicker,
+    editItemColorPicker,
+    yearGoalColorPicker,
+    monthGoalColorPicker,
+    editMonthGoalColorPicker,
+    editYearGoalColorPicker,
+  ];
+
+  pickers.forEach((picker) => {
+    if (!picker) return;
+    picker.innerHTML = "";
+    COLOR_DEFS.forEach(({ key, hex, label }) => {
+      const option = document.createElement("span");
+      option.className = `color-option${key === "blue" ? " selected" : ""}`;
+      option.dataset.color = key;
+      option.style.background = hex;
+      option.title = label;
+      picker.appendChild(option);
+    });
+  });
+}
+
+buildColorPickers();
+
+// 主題名稱改變時同步更新色票的 tooltip
+function refreshColorPickerLabels() {
+  document.querySelectorAll(".color-option[data-color]").forEach((option) => {
+    option.title = getColorLabel(option.dataset.color);
+  });
+}
+
+function hiddenColorsStorageKey() {
+  return `mycal_hiddenColors_${currentUser}`;
+}
+
+function loadHiddenColors() {
+  hiddenColors = new Set();
+  try {
+    const saved = localStorage.getItem(hiddenColorsStorageKey());
+    if (saved) hiddenColors = new Set(JSON.parse(saved));
+  } catch (error) {
+    console.error("讀取顏色篩選失敗:", error);
+  }
+}
+
+function saveHiddenColors() {
+  try {
+    localStorage.setItem(
+      hiddenColorsStorageKey(),
+      JSON.stringify([...hiddenColors])
+    );
+  } catch (error) {
+    console.error("儲存顏色篩選失敗:", error);
+  }
+}
+
+function renderColorThemes() {
+  colorThemeList.innerHTML = "";
+
+  COLOR_DEFS.forEach(({ key, hex }) => {
+    const row = document.createElement("div");
+    row.className = "color-theme-row";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "color-theme-check";
+    checkbox.checked = !hiddenColors.has(key);
+    checkbox.style.accentColor = hex;
+    checkbox.title = "顯示／隱藏此顏色";
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        hiddenColors.delete(key);
+      } else {
+        hiddenColors.add(key);
+      }
+      saveHiddenColors();
+      row.classList.toggle("off", !checkbox.checked);
+      updateCalendarStatus();
+    });
+
+    const dot = document.createElement("span");
+    dot.className = "color-theme-dot";
+    dot.style.background = hex;
+
+    const name = document.createElement("span");
+    name.className = "color-theme-name";
+    name.textContent = getColorLabel(key);
+    name.title = "點擊命名主題";
+    name.addEventListener("click", () => startRenameColorTheme(key, name));
+
+    row.append(checkbox, dot, name);
+    if (!checkbox.checked) row.classList.add("off");
+    colorThemeList.appendChild(row);
+  });
+}
+
+// 就地編輯主題名稱
+function startRenameColorTheme(key, nameEl) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "color-theme-input";
+  input.value = getColorLabel(key);
+  input.maxLength = 12;
+
+  let finished = false;
+  const finish = (save) => {
+    if (finished) return;
+    finished = true;
+    const text = input.value.trim();
+    input.replaceWith(nameEl);
+    if (save) saveColorTheme(key, text);
+  };
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") finish(true);
+    if (e.key === "Escape") finish(false);
+  });
+  input.addEventListener("blur", () => finish(true));
+
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+async function saveColorTheme(key, text) {
+  if (!currentUser) return;
+
+  const def = COLOR_DEFS.find((c) => c.key === key);
+  // 與預設名稱相同（或清空）就不存，維持預設
+  const value = !text || text === def.label ? null : text;
+
+  try {
+    await set(ref(db, `users/${currentUser}/colorThemes/${key}`), value);
+  } catch (error) {
+    console.error("儲存顏色主題失敗:", error);
+    alert("儲存失敗，請稍後再試");
+  }
+}
+
+// ==================== 側邊欄 ====================
+
+function setSidebarOpen(open) {
+  appBody.classList.toggle("sidebar-hidden", !open);
+}
+
+sidebarToggle.addEventListener("click", () => {
+  setSidebarOpen(appBody.classList.contains("sidebar-hidden"));
+});
+
+sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+
+// 窄畫面預設收合側邊欄
+setSidebarOpen(window.innerWidth > 900);
+
+// ==================== 導覽列下拉面板 ====================
+
+const navDropdowns = [
+  ["yearGoalsNavBtn", "yearGoalsPanel"],
+  ["progressNavBtn", "progressPanel"],
+  ["moreNavBtn", "moreMenu"],
+].map(([btnId, panelId]) => ({
+  btn: document.getElementById(btnId),
+  panel: document.getElementById(panelId),
+}));
+
+function closeNavPanels() {
+  navDropdowns.forEach(({ btn, panel }) => {
+    panel.classList.add("hidden");
+    btn.classList.remove("active");
+  });
+}
+
+navDropdowns.forEach(({ btn, panel }) => {
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const wasOpen = !panel.classList.contains("hidden");
+    closeNavPanels();
+    if (!wasOpen) {
+      panel.classList.remove("hidden");
+      btn.classList.add("active");
+    }
+  });
+
+  // 點面板內部不關閉，但選單項目按下後要收起
+  panel.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (panel.classList.contains("nav-menu") && e.target.tagName === "BUTTON") {
+      closeNavPanels();
+    }
+  });
+});
+
+document.addEventListener("click", closeNavPanels);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeNavPanels();
+});
 
 // ==================== 初始化白名單 ====================
 
@@ -231,6 +465,8 @@ function showMainPage() {
   currentUserDisplay.textContent = `👤 ${currentUser}`;
 
   // 初始化頁面
+  loadHiddenColors();
+  renderColorThemes();
   initCalendar();
   loadYearGoals();
   loadMonthGoal();
@@ -453,11 +689,15 @@ function updateCalendarStatus() {
 
       sortedItemIds.forEach((itemId) => {
         const item = items[itemId];
+        const color = item.color || "blue";
+
+        // 顏色被隱藏的項目不顯示在日曆上（達成率仍照全部項目計算）
+        if (hiddenColors.has(color)) return;
+
         const itemDiv = document.createElement("div");
-        const colorClass = item.color ? ` item-color-${item.color}` : "";
         itemDiv.className = `day-item my-item${
           item.completed ? " completed" : ""
-        }${colorClass}`;
+        } item-color-${color}`;
         itemDiv.textContent = item.text;
         itemDiv.dataset.itemId = itemId;
         itemDiv.dataset.dateKey = dateKey;
@@ -546,26 +786,32 @@ function updateCalendarStatus() {
   calculateProgressRate();
 }
 
-// 上一月
-prevMonthBtn.addEventListener("click", () => {
-  currentMonth--;
-  if (currentMonth < 0) {
-    currentMonth = 11;
-    currentYear--;
-  }
+// 切換到指定月份（跨年時一併重載年度目標）
+function goToMonth(year, month) {
+  const yearChanged = year !== currentYear;
+  currentYear = year;
+  currentMonth = month;
   renderCalendar();
   loadMonthGoal();
+  if (yearChanged) loadYearGoals();
+}
+
+// 上一月
+prevMonthBtn.addEventListener("click", () => {
+  const prev = currentMonth - 1;
+  goToMonth(prev < 0 ? currentYear - 1 : currentYear, prev < 0 ? 11 : prev);
 });
 
 // 下一月
 nextMonthBtn.addEventListener("click", () => {
-  currentMonth++;
-  if (currentMonth > 11) {
-    currentMonth = 0;
-    currentYear++;
-  }
-  renderCalendar();
-  loadMonthGoal();
+  const next = currentMonth + 1;
+  goToMonth(next > 11 ? currentYear + 1 : currentYear, next > 11 ? 0 : next);
+});
+
+// 回到今天
+todayBtn.addEventListener("click", () => {
+  const today = getToday();
+  goToMonth(today.year, today.month);
 });
 
 // ==================== 每日項目彈窗 ====================
@@ -1231,6 +1477,8 @@ let yearGoalsData = {};
 
 async function loadYearGoals() {
   if (!currentUser) return;
+
+  yearGoalsPanelTitle.textContent = `🎯 ${currentYear} 年度目標`;
 
   const yearKey = currentYear.toString();
   const yearGoalsRef = ref(
@@ -1907,6 +2155,7 @@ function calculateProgressRate() {
   const rate = daysWithItems > 0 ? Math.round((daysAllCompleted / daysWithItems) * 100) : 0;
   progressRate.textContent = `${rate}%`;
   progressDetail.textContent = `全完成 ${daysAllCompleted} 天 / 有項目 ${daysWithItems} 天`;
+  progressBarFill.style.width = `${rate}%`;
 
   // 更新 Firebase 中的達成率
   if (currentUser && isCurrentMonth) {
@@ -1938,6 +2187,14 @@ function setupRealtimeListeners() {
     if (selectedDate && !dailyModal.classList.contains("hidden")) {
       renderItemsList();
     }
+  });
+
+  // 監聽顏色主題變化
+  const colorThemesRef = ref(db, `users/${currentUser}/colorThemes`);
+  onValue(colorThemesRef, (snapshot) => {
+    colorThemeNames = snapshot.exists() ? snapshot.val() : {};
+    renderColorThemes();
+    refreshColorPickerLabels();
   });
 }
 
