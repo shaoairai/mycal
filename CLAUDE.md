@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-My2026 is a goal tracking and calendar management web application for setting yearly/monthly goals and tracking daily tasks. It's a vanilla JavaScript SPA with Firebase Realtime Database backend.
+mycal is a goal tracking and calendar management web application for setting yearly/monthly goals and tracking daily tasks. It's a vanilla JavaScript SPA with Firebase Realtime Database backend.
 
 ## Development
 
