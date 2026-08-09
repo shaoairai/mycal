@@ -83,6 +83,10 @@
             </div>
           </div>
 
+          <button id="weekPanelBtn" class="icon-btn week-toggle-btn" title="顯示／隱藏週目標欄">
+            週
+          </button>
+
           <div class="nav-dropdown">
             <button id="moreNavBtn" class="nav-btn" title="更多">⋯</button>
             <div id="moreMenu" class="nav-panel nav-menu hidden">
@@ -101,14 +105,7 @@
       <div class="app-body">
         <!-- 左側欄 -->
         <aside id="sidebar" class="sidebar">
-          <section class="sidebar-block">
-            <h3>🗂 檢視</h3>
-            <div class="view-toggle-row">
-              <input type="checkbox" id="weekPanelToggle" checked />
-              <label for="weekPanelToggle">顯示週目標欄</label>
-            </div>
-          </section>
-
+         <div class="sidebar-inner">
           <section class="sidebar-block">
             <h3 id="monthGoalTitle">📅 月目標</h3>
             <div id="monthGoalsList" class="goal-items-list"></div>
@@ -130,6 +127,7 @@
             <p class="sidebar-hint">取消勾選可隱藏該顏色，點名稱可改主題</p>
             <div id="colorThemeList" class="color-theme-list"></div>
           </section>
+         </div>
         </aside>
         <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
 
@@ -149,13 +147,19 @@
 
         <!-- 週目標欄 -->
         <aside id="weekPanel" class="week-panel">
-          <div class="week-panel-header">
-            <h3>🗓 週目標</h3>
-            <button id="closeWeekPanelBtn" class="icon-btn" title="隱藏週目標欄">
-              &times;
-            </button>
+          <div class="week-panel-inner">
+            <div class="week-panel-header">
+              <h3>📆 週目標</h3>
+              <button
+                id="closeWeekPanelBtn"
+                class="icon-btn"
+                title="隱藏週目標欄"
+              >
+                &times;
+              </button>
+            </div>
+            <div id="weekPanelBody" class="week-list"></div>
           </div>
-          <div id="weekPanelBody" class="week-list"></div>
         </aside>
       </div>
 

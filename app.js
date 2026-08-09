@@ -72,7 +72,7 @@ const yearGoalsPanelTitle = document.getElementById("yearGoalsPanelTitle");
 
 const weekPanel = document.getElementById("weekPanel");
 const weekPanelBody = document.getElementById("weekPanelBody");
-const weekPanelToggle = document.getElementById("weekPanelToggle");
+const weekPanelBtn = document.getElementById("weekPanelBtn");
 const closeWeekPanelBtn = document.getElementById("closeWeekPanelBtn");
 const weekGoalModal = document.getElementById("weekGoalModal");
 const closeWeekGoalModal = document.getElementById("closeWeekGoalModal");
@@ -2294,6 +2294,13 @@ function getWeekGoalsSorted(items) {
   });
 }
 
+function getColorHex(key) {
+  return COLOR_DEFS.find((c) => c.key === key)?.hex || "#3498DB";
+}
+
+// 拖曳中的週目標 { weekKey, itemId }
+let draggedWeekGoal = null;
+
 function renderWeekGoals() {
   weekPanelBody.innerHTML = "";
 
@@ -2309,21 +2316,26 @@ function renderWeekGoals() {
 
     const header = document.createElement("div");
     header.className = "week-card-header";
-    header.innerHTML = `
-      <span class="week-card-title">第 ${index + 1} 週</span>
-      <span class="week-card-range">${formatWeekRange(
-        week.start,
-        week.end
-      )}</span>
-    `;
+
+    const badge = document.createElement("span");
+    badge.className = "week-badge";
+    badge.textContent = `第 ${index + 1} 週`;
+
+    const range = document.createElement("span");
+    range.className = "week-card-range";
+    range.textContent = formatWeekRange(week.start, week.end);
 
     const addBtn = document.createElement("button");
     addBtn.className = "week-add-btn";
     addBtn.textContent = "＋";
     addBtn.title = "新增週目標";
     addBtn.addEventListener("click", () => openWeekGoalModal(week));
-    header.appendChild(addBtn);
+
+    header.append(badge, range, addBtn);
     card.appendChild(header);
+
+    const list = document.createElement("div");
+    list.className = "week-card-list";
 
     const items = weeklyGoalsData[week.key]?.items || {};
     const sortedIds = getWeekGoalsSorted(items);
@@ -2339,36 +2351,10 @@ function renderWeekGoals() {
         return;
       }
 
-      const row = document.createElement("div");
-      row.className = `goal-item-row week-goal-row color-${color}${
-        item.completed ? " completed" : ""
-      }`;
-
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.className = "goal-item-checkbox";
-      checkbox.checked = !!item.completed;
-      checkbox.addEventListener("change", () =>
-        toggleWeekGoalItem(week.key, itemId, checkbox.checked)
-      );
-
-      const text = document.createElement("span");
-      text.className = "goal-item-text";
-      text.textContent = item.text;
-      text.title = "點擊編輯";
-      text.addEventListener("click", () =>
-        openWeekGoalModal(week, itemId, item)
-      );
-
-      const del = document.createElement("button");
-      del.className = "goal-item-delete";
-      del.textContent = "×";
-      del.title = "刪除";
-      del.addEventListener("click", () => deleteWeekGoalItem(week.key, itemId));
-
-      row.append(checkbox, text, del);
-      card.appendChild(row);
+      list.appendChild(createWeekGoalRow(week, itemId, item, color));
     });
+
+    card.appendChild(list);
 
     if (sortedIds.length === 0) {
       const empty = document.createElement("p");
@@ -2382,8 +2368,153 @@ function renderWeekGoals() {
       card.appendChild(note);
     }
 
+    // 拖到別週的卡片＝搬到那一週
+    card.addEventListener("dragover", (e) => {
+      if (!draggedWeekGoal || draggedWeekGoal.weekKey === week.key) return;
+      e.preventDefault();
+      card.classList.add("drag-over");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
+    card.addEventListener("drop", async (e) => {
+      card.classList.remove("drag-over");
+      if (!draggedWeekGoal || draggedWeekGoal.weekKey === week.key) return;
+      e.preventDefault();
+      const { weekKey, itemId } = draggedWeekGoal;
+      draggedWeekGoal = null;
+      await moveWeekGoal(weekKey, itemId, week.key);
+    });
+
     weekPanelBody.appendChild(card);
   });
+}
+
+function createWeekGoalRow(week, itemId, item, color) {
+  const row = document.createElement("div");
+  row.className = `week-goal-row${item.completed ? " completed" : ""}`;
+  row.style.borderLeftColor = getColorHex(color);
+  row.draggable = true;
+  row.dataset.id = itemId;
+
+  const handle = document.createElement("span");
+  handle.className = "week-goal-handle";
+  handle.textContent = "⋮⋮";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "week-goal-checkbox";
+  checkbox.checked = !!item.completed;
+  checkbox.style.accentColor = getColorHex(color);
+  checkbox.addEventListener("change", () =>
+    toggleWeekGoalItem(week.key, itemId, checkbox.checked)
+  );
+
+  const text = document.createElement("span");
+  text.className = "week-goal-text";
+  text.textContent = item.text;
+  text.title = "點擊編輯";
+  text.addEventListener("click", () => openWeekGoalModal(week, itemId, item));
+
+  const del = document.createElement("button");
+  del.className = "week-goal-delete";
+  del.textContent = "×";
+  del.title = "刪除";
+  del.addEventListener("click", () => deleteWeekGoalItem(week.key, itemId));
+
+  row.append(handle, checkbox, text, del);
+
+  // 拖曳排序
+  row.addEventListener("dragstart", (e) => {
+    draggedWeekGoal = { weekKey: week.key, itemId };
+    row.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", item.text);
+  });
+
+  row.addEventListener("dragend", () => {
+    draggedWeekGoal = null;
+    row.classList.remove("dragging");
+    document
+      .querySelectorAll(".week-goal-row.drag-over, .week-card.drag-over")
+      .forEach((el) => el.classList.remove("drag-over"));
+  });
+
+  row.addEventListener("dragover", (e) => {
+    if (!draggedWeekGoal) return;
+    if (draggedWeekGoal.weekKey !== week.key) return;
+    if (draggedWeekGoal.itemId === itemId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    row.classList.add("drag-over");
+  });
+
+  row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+
+  row.addEventListener("drop", async (e) => {
+    row.classList.remove("drag-over");
+    if (!draggedWeekGoal) return;
+    if (draggedWeekGoal.weekKey !== week.key) return;
+    if (draggedWeekGoal.itemId === itemId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const fromId = draggedWeekGoal.itemId;
+    draggedWeekGoal = null;
+    await reorderWeekGoals(week.key, fromId, itemId);
+  });
+
+  return row;
+}
+
+// 同一週內重新排序
+async function reorderWeekGoals(weekKey, fromId, toId) {
+  if (!currentUser) return;
+
+  const items = weeklyGoalsData[weekKey]?.items || {};
+  const sortedIds = getWeekGoalsSorted(items);
+  const fromIndex = sortedIds.indexOf(fromId);
+  const toIndex = sortedIds.indexOf(toId);
+  if (fromIndex === -1 || toIndex === -1) return;
+
+  sortedIds.splice(fromIndex, 1);
+  sortedIds.splice(toIndex, 0, fromId);
+
+  const updates = {};
+  sortedIds.forEach((id, index) => {
+    updates[`users/${currentUser}/weeklyGoals/${weekKey}/items/${id}/order`] =
+      index;
+  });
+
+  try {
+    await update(ref(db), updates);
+  } catch (error) {
+    console.error("重新排序週目標失敗:", error);
+  }
+}
+
+// 搬到另一週
+async function moveWeekGoal(fromWeekKey, itemId, toWeekKey) {
+  if (!currentUser || fromWeekKey === toWeekKey) return;
+
+  const item = weeklyGoalsData[fromWeekKey]?.items?.[itemId];
+  if (!item) return;
+
+  const targetItems = weeklyGoalsData[toWeekKey]?.items || {};
+  const maxOrder = Object.values(targetItems).reduce((max, target) => {
+    return Math.max(max, target.order ?? 0);
+  }, -1);
+
+  const updates = {};
+  updates[
+    `users/${currentUser}/weeklyGoals/${toWeekKey}/items/${Date.now()}`
+  ] = { ...item, order: maxOrder + 1 };
+  updates[`users/${currentUser}/weeklyGoals/${fromWeekKey}/items/${itemId}`] =
+    null;
+
+  try {
+    await update(ref(db), updates);
+  } catch (error) {
+    console.error("移動週目標失敗:", error);
+    alert("移動失敗，請稍後再試");
+  }
 }
 
 // 開啟週目標彈窗（沒帶 itemId 就是新增）
@@ -2506,9 +2637,13 @@ function weekPanelStorageKey() {
   return `mycal_weekPanel_${currentUser}`;
 }
 
+function applyWeekPanelState(visible) {
+  appBody.classList.toggle("week-hidden", !visible);
+  weekPanelBtn.classList.toggle("active", visible);
+}
+
 function setWeekPanelVisible(visible) {
-  weekPanel.classList.toggle("hidden", !visible);
-  weekPanelToggle.checked = visible;
+  applyWeekPanelState(visible);
   try {
     localStorage.setItem(weekPanelStorageKey(), visible ? "1" : "0");
   } catch (error) {
@@ -2517,18 +2652,18 @@ function setWeekPanelVisible(visible) {
 }
 
 function loadWeekPanelVisibility() {
-  let visible = true;
+  let saved = null;
   try {
-    visible = localStorage.getItem(weekPanelStorageKey()) !== "0";
+    saved = localStorage.getItem(weekPanelStorageKey());
   } catch (error) {
     console.error("讀取週目標欄設定失敗:", error);
   }
-  weekPanel.classList.toggle("hidden", !visible);
-  weekPanelToggle.checked = visible;
+  // 沒設定過時，寬螢幕才預設展開（窄螢幕塞不下三欄）
+  applyWeekPanelState(saved === null ? window.innerWidth > 1100 : saved !== "0");
 }
 
-weekPanelToggle.addEventListener("change", () => {
-  setWeekPanelVisible(weekPanelToggle.checked);
+weekPanelBtn.addEventListener("click", () => {
+  setWeekPanelVisible(appBody.classList.contains("week-hidden"));
 });
 
 closeWeekPanelBtn.addEventListener("click", () => setWeekPanelVisible(false));
