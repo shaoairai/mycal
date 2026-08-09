@@ -1960,6 +1960,8 @@ let currentStatsView = "grid"; // "grid" or "chart"
 // 開啟統計彈窗
 viewStatsBtn.addEventListener("click", async () => {
   statsModal.classList.remove("hidden");
+  const statsTitle = document.getElementById("statsTitle");
+  if (statsTitle) statsTitle.textContent = `📊 ${currentYear} 年統計總覽`;
   statsContent.innerHTML = '<p class="loading-text">載入中...</p>';
   cachedStatsData = null;
   await loadAllUsersStats();
@@ -2012,9 +2014,9 @@ async function loadAllUsersStats() {
       const phone = users[i];
       const userColor = userColors[i % userColors.length];
 
-      // 取得該使用者 2026 年的資料
-      const monthlyRates = await getUserMonthlyRates(phone, 2026);
-      const yearGoals = await getUserYearGoals(phone, 2026);
+      // 取得該使用者目前年份的資料
+      const monthlyRates = await getUserMonthlyRates(phone, currentYear);
+      const yearGoals = await getUserYearGoals(phone, currentYear);
 
       cachedStatsData.push({
         phone,

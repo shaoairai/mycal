@@ -1,10 +1,10 @@
-const CACHE_NAME = 'goal-2026-v1';
+const CACHE_NAME = 'mycal-v1';
 const urlsToCache = [
-  '/my2026/',
-  '/my2026/index.html',
-  '/my2026/style.css',
-  '/my2026/app.js',
-  '/my2026/manifest.json'
+  '/mycal/',
+  '/mycal/index.html',
+  '/mycal/style.css',
+  '/mycal/app.js',
+  '/mycal/manifest.json'
 ];
 
 // 安裝 Service Worker
