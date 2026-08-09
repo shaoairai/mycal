@@ -163,6 +163,16 @@
         </aside>
       </div>
 
+      <!-- 當日項目快速檢視（點「還有 X 個」浮出，只看不編輯） -->
+      <div id="dayPeek" class="day-peek hidden">
+        <div class="day-peek-header">
+          <span id="dayPeekDate" class="day-peek-date"></span>
+          <button id="dayPeekClose" class="icon-btn" title="關閉">&times;</button>
+        </div>
+        <div id="dayPeekList" class="day-peek-list"></div>
+        <button id="dayPeekEditBtn" class="day-peek-edit">編輯這天</button>
+      </div>
+
       <!-- 每日項目彈窗 -->
       <div id="dailyModal" class="modal hidden">
         <div class="modal-content modal-large">

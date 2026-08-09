@@ -1422,6 +1422,98 @@ body {
     color: var(--text-primary);
 }
 
+/* ==================== 當日項目快速檢視 ==================== */
+.day-peek {
+    position: fixed;
+    z-index: 900;
+    width: 240px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    padding: 10px;
+}
+
+.day-peek-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+
+.day-peek-date {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.day-peek-header .icon-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+}
+
+.day-peek-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.day-peek-item {
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 5px 8px;
+    background: var(--bg-muted);
+    border-left: 3px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.day-peek-item.completed {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.day-peek-item.completed::before {
+    content: "✓ ";
+    font-weight: bold;
+}
+
+.day-peek-note {
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 2px 4px;
+}
+
+.day-peek-edit {
+    margin-top: 8px;
+    padding: 7px;
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.day-peek-edit:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
 /* ==================== 彈窗 ==================== */
 .modal {
     position: fixed;

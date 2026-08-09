@@ -696,8 +696,112 @@ function clampDayItems(container) {
   const more = document.createElement("div");
   more.className = "day-item-more";
   more.textContent = `還有 ${items.length - visible} 個`;
+  more.addEventListener("click", (e) => {
+    // 這裡是「看全部」，不是進編輯模式，所以不讓事件冒泡到格子
+    e.stopPropagation();
+    openDayPeek(container.closest(".calendar-day"));
+  });
   container.appendChild(more);
 }
+
+// ==================== 當日項目快速檢視 ====================
+
+const dayPeek = document.getElementById("dayPeek");
+const dayPeekDate = document.getElementById("dayPeekDate");
+const dayPeekList = document.getElementById("dayPeekList");
+const dayPeekClose = document.getElementById("dayPeekClose");
+const dayPeekEditBtn = document.getElementById("dayPeekEditBtn");
+
+let peekDateKey = null;
+
+function renderDayPeek() {
+  if (!peekDateKey) return;
+
+  const [year, month, day] = peekDateKey.split("-").map(Number);
+  const dayOfWeek = new Date(year, month - 1, day).getDay();
+  dayPeekDate.textContent = `${month} 月 ${day} 日（${WEEKDAY_LABELS[dayOfWeek]}）`;
+
+  const items = dailyGoalsData[peekDateKey]?.items || {};
+  const sortedIds = getDayItemsSorted(items);
+
+  dayPeekList.innerHTML = "";
+  let hiddenCount = 0;
+
+  sortedIds.forEach((itemId) => {
+    const item = items[itemId];
+    const color = item.color || "blue";
+
+    if (hiddenColors.has(color)) {
+      hiddenCount++;
+      return;
+    }
+
+    const row = document.createElement("div");
+    row.className = `day-peek-item${item.completed ? " completed" : ""}`;
+    row.style.borderLeftColor = getColorHex(color);
+    row.textContent = item.text;
+    dayPeekList.appendChild(row);
+  });
+
+  if (sortedIds.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "day-peek-note";
+    empty.textContent = "這天沒有項目";
+    dayPeekList.appendChild(empty);
+  } else if (hiddenCount > 0) {
+    const note = document.createElement("p");
+    note.className = "day-peek-note";
+    note.textContent = `${hiddenCount} 個項目因顏色隱藏`;
+    dayPeekList.appendChild(note);
+  }
+}
+
+function openDayPeek(dayDiv) {
+  if (!dayDiv) return;
+
+  peekDateKey = dayDiv.dataset.date;
+  renderDayPeek();
+  dayPeek.classList.remove("hidden");
+
+  // 先顯示才量得到尺寸，再夾在視窗範圍內
+  const cell = dayDiv.getBoundingClientRect();
+  const width = dayPeek.offsetWidth;
+  const height = dayPeek.offsetHeight;
+
+  const left = Math.min(
+    Math.max(cell.left + cell.width / 2 - width / 2, 8),
+    window.innerWidth - width - 8
+  );
+  const top = Math.min(
+    Math.max(cell.top - 8, 8),
+    window.innerHeight - height - 8
+  );
+
+  dayPeek.style.left = `${left}px`;
+  dayPeek.style.top = `${top}px`;
+}
+
+function closeDayPeek() {
+  dayPeek.classList.add("hidden");
+  peekDateKey = null;
+}
+
+dayPeekClose.addEventListener("click", closeDayPeek);
+dayPeek.addEventListener("click", (e) => e.stopPropagation());
+
+// 「編輯這天」才進入原本的編輯彈窗
+dayPeekEditBtn.addEventListener("click", () => {
+  if (!peekDateKey) return;
+  const dateKey = peekDateKey;
+  closeDayPeek();
+  openDailyModal(dateKey);
+});
+
+document.addEventListener("click", closeDayPeek);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDayPeek();
+});
+window.addEventListener("resize", closeDayPeek);
 
 // 視窗大小改變時格子高度會變，重算一次
 let resizeTimer = null;
@@ -833,6 +937,9 @@ function updateCalendarStatus() {
       }
     }
   });
+
+  // 快速檢視開著的話，內容也要跟著更新
+  if (peekDateKey) renderDayPeek();
 
   // 計算達成率
   calculateProgressRate();
