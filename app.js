@@ -70,6 +70,18 @@ const sidebarBackdrop = document.getElementById("sidebarBackdrop");
 const progressBarFill = document.getElementById("progressBarFill");
 const yearGoalsPanelTitle = document.getElementById("yearGoalsPanelTitle");
 
+const weekPanel = document.getElementById("weekPanel");
+const weekPanelBody = document.getElementById("weekPanelBody");
+const weekPanelToggle = document.getElementById("weekPanelToggle");
+const closeWeekPanelBtn = document.getElementById("closeWeekPanelBtn");
+const weekGoalModal = document.getElementById("weekGoalModal");
+const closeWeekGoalModal = document.getElementById("closeWeekGoalModal");
+const weekGoalModalTitle = document.getElementById("weekGoalModalTitle");
+const weekGoalModalRange = document.getElementById("weekGoalModalRange");
+const weekGoalInput = document.getElementById("weekGoalInput");
+const weekGoalColorPicker = document.getElementById("weekGoalColorPicker");
+const saveWeekGoalBtn = document.getElementById("saveWeekGoalBtn");
+
 const dailyModal = document.getElementById("dailyModal");
 const closeModal = document.getElementById("closeModal");
 const modalDate = document.getElementById("modalDate");
@@ -183,6 +195,7 @@ function buildColorPickers() {
     monthGoalColorPicker,
     editMonthGoalColorPicker,
     editYearGoalColorPicker,
+    weekGoalColorPicker,
   ];
 
   pickers.forEach((picker) => {
@@ -255,6 +268,7 @@ function renderColorThemes() {
       saveHiddenColors();
       row.classList.toggle("off", !checkbox.checked);
       updateCalendarStatus();
+      renderWeekGoals();
     });
 
     const dot = document.createElement("span");
@@ -467,6 +481,7 @@ function showMainPage() {
   // 初始化頁面
   loadHiddenColors();
   renderColorThemes();
+  loadWeekPanelVisibility();
   initCalendar();
   loadYearGoals();
   loadMonthGoal();
@@ -829,6 +844,7 @@ function goToMonth(year, month) {
   currentYear = year;
   currentMonth = month;
   renderCalendar();
+  renderWeekGoals();
   loadMonthGoal();
   if (yearChanged) loadYearGoals();
 }
@@ -2224,6 +2240,299 @@ editMonthGoalInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") saveEditMonthGoal();
 });
 
+// ==================== 週目標 ====================
+
+let weeklyGoalsData = {};
+
+// 編輯中的週目標 { weekKey, itemId | null }
+let editingWeekGoal = null;
+let selectedWeekGoalColor = "blue";
+
+// 一週以週日為起點，用該日的 dateKey 當 key（跨月的週在兩個月看到的是同一組）
+function getWeekKeyFromDate(date) {
+  const sunday = new Date(date);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  return getDateKey(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
+}
+
+// 取得當月日曆上出現的每一週
+function getMonthWeeks() {
+  const weeks = [];
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  const lastDate = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const lastDay = new Date(currentYear, currentMonth, lastDate);
+
+  const cursor = new Date(firstDay);
+  cursor.setDate(1 - firstDay.getDay());
+
+  while (cursor <= lastDay) {
+    const start = new Date(cursor);
+    const end = new Date(cursor);
+    end.setDate(end.getDate() + 6);
+    weeks.push({
+      key: getDateKey(start.getFullYear(), start.getMonth(), start.getDate()),
+      start,
+      end,
+    });
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  return weeks;
+}
+
+function formatWeekRange(start, end) {
+  return `${start.getMonth() + 1}/${start.getDate()} – ${
+    end.getMonth() + 1
+  }/${end.getDate()}`;
+}
+
+function getWeekGoalsSorted(items) {
+  return Object.keys(items).sort((a, b) => {
+    const orderA = items[a].order ?? 999999;
+    const orderB = items[b].order ?? 999999;
+    return orderA - orderB;
+  });
+}
+
+function renderWeekGoals() {
+  weekPanelBody.innerHTML = "";
+
+  const today = getToday();
+  const todayWeekKey = getWeekKeyFromDate(
+    new Date(today.year, today.month, today.day)
+  );
+
+  getMonthWeeks().forEach((week, index) => {
+    const card = document.createElement("div");
+    card.className = "week-card";
+    if (week.key === todayWeekKey) card.classList.add("current");
+
+    const header = document.createElement("div");
+    header.className = "week-card-header";
+    header.innerHTML = `
+      <span class="week-card-title">第 ${index + 1} 週</span>
+      <span class="week-card-range">${formatWeekRange(
+        week.start,
+        week.end
+      )}</span>
+    `;
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "week-add-btn";
+    addBtn.textContent = "＋";
+    addBtn.title = "新增週目標";
+    addBtn.addEventListener("click", () => openWeekGoalModal(week));
+    header.appendChild(addBtn);
+    card.appendChild(header);
+
+    const items = weeklyGoalsData[week.key]?.items || {};
+    const sortedIds = getWeekGoalsSorted(items);
+    let hiddenCount = 0;
+
+    sortedIds.forEach((itemId) => {
+      const item = items[itemId];
+      const color = item.color || "blue";
+
+      // 顏色被隱藏時，這條週目標也一起隱藏
+      if (hiddenColors.has(color)) {
+        hiddenCount++;
+        return;
+      }
+
+      const row = document.createElement("div");
+      row.className = `goal-item-row week-goal-row color-${color}${
+        item.completed ? " completed" : ""
+      }`;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "goal-item-checkbox";
+      checkbox.checked = !!item.completed;
+      checkbox.addEventListener("change", () =>
+        toggleWeekGoalItem(week.key, itemId, checkbox.checked)
+      );
+
+      const text = document.createElement("span");
+      text.className = "goal-item-text";
+      text.textContent = item.text;
+      text.title = "點擊編輯";
+      text.addEventListener("click", () =>
+        openWeekGoalModal(week, itemId, item)
+      );
+
+      const del = document.createElement("button");
+      del.className = "goal-item-delete";
+      del.textContent = "×";
+      del.title = "刪除";
+      del.addEventListener("click", () => deleteWeekGoalItem(week.key, itemId));
+
+      row.append(checkbox, text, del);
+      card.appendChild(row);
+    });
+
+    if (sortedIds.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "week-card-empty";
+      empty.textContent = "尚未設定";
+      card.appendChild(empty);
+    } else if (hiddenCount > 0) {
+      const note = document.createElement("p");
+      note.className = "week-card-empty";
+      note.textContent = `${hiddenCount} 個項目因顏色隱藏`;
+      card.appendChild(note);
+    }
+
+    weekPanelBody.appendChild(card);
+  });
+}
+
+// 開啟週目標彈窗（沒帶 itemId 就是新增）
+function openWeekGoalModal(week, itemId = null, item = null) {
+  editingWeekGoal = { weekKey: week.key, itemId };
+  weekGoalModalTitle.textContent = itemId ? "編輯週目標" : "新增週目標";
+  weekGoalModalRange.textContent = `${formatWeekRange(week.start, week.end)} 這一週`;
+  weekGoalInput.value = item?.text || "";
+  selectedWeekGoalColor = item?.color || "blue";
+
+  weekGoalColorPicker.querySelectorAll(".color-option").forEach((opt) => {
+    opt.classList.toggle("selected", opt.dataset.color === selectedWeekGoalColor);
+  });
+
+  weekGoalModal.classList.remove("hidden");
+  weekGoalInput.focus();
+}
+
+function closeWeekGoal() {
+  weekGoalModal.classList.add("hidden");
+  editingWeekGoal = null;
+}
+
+closeWeekGoalModal.addEventListener("click", closeWeekGoal);
+weekGoalModal.addEventListener("click", (e) => {
+  if (e.target === weekGoalModal) closeWeekGoal();
+});
+
+weekGoalColorPicker.querySelectorAll(".color-option").forEach((option) => {
+  option.addEventListener("click", (e) => {
+    weekGoalColorPicker
+      .querySelectorAll(".color-option")
+      .forEach((o) => o.classList.remove("selected"));
+    e.target.classList.add("selected");
+    selectedWeekGoalColor = e.target.dataset.color;
+  });
+});
+
+async function saveWeekGoal() {
+  if (!editingWeekGoal || !currentUser) return;
+
+  const text = weekGoalInput.value.trim();
+  if (!text) {
+    alert("請輸入週目標");
+    return;
+  }
+
+  const { weekKey, itemId } = editingWeekGoal;
+  const items = weeklyGoalsData[weekKey]?.items || {};
+
+  try {
+    if (itemId) {
+      const itemRef = ref(
+        db,
+        `users/${currentUser}/weeklyGoals/${weekKey}/items/${itemId}`
+      );
+      await update(itemRef, { text, color: selectedWeekGoalColor });
+    } else {
+      const maxOrder = Object.values(items).reduce((max, item) => {
+        return Math.max(max, item.order ?? 0);
+      }, -1);
+
+      const newItemId = Date.now().toString();
+      const itemRef = ref(
+        db,
+        `users/${currentUser}/weeklyGoals/${weekKey}/items/${newItemId}`
+      );
+      await set(itemRef, {
+        text,
+        completed: false,
+        color: selectedWeekGoalColor,
+        order: maxOrder + 1,
+      });
+    }
+
+    closeWeekGoal();
+  } catch (error) {
+    console.error("儲存週目標失敗:", error);
+    alert("儲存失敗，請稍後再試");
+  }
+}
+
+saveWeekGoalBtn.addEventListener("click", saveWeekGoal);
+weekGoalInput.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") saveWeekGoal();
+});
+
+async function toggleWeekGoalItem(weekKey, itemId, completed) {
+  if (!currentUser) return;
+
+  try {
+    const itemRef = ref(
+      db,
+      `users/${currentUser}/weeklyGoals/${weekKey}/items/${itemId}`
+    );
+    await update(itemRef, { completed });
+  } catch (error) {
+    console.error("更新週目標狀態失敗:", error);
+  }
+}
+
+async function deleteWeekGoalItem(weekKey, itemId) {
+  if (!currentUser) return;
+  if (!confirm("確定要刪除此週目標嗎？")) return;
+
+  try {
+    const itemRef = ref(
+      db,
+      `users/${currentUser}/weeklyGoals/${weekKey}/items/${itemId}`
+    );
+    await set(itemRef, null);
+  } catch (error) {
+    console.error("刪除週目標失敗:", error);
+    alert("刪除失敗，請稍後再試");
+  }
+}
+
+// 週目標欄顯示／隱藏（記在本機）
+function weekPanelStorageKey() {
+  return `mycal_weekPanel_${currentUser}`;
+}
+
+function setWeekPanelVisible(visible) {
+  weekPanel.classList.toggle("hidden", !visible);
+  weekPanelToggle.checked = visible;
+  try {
+    localStorage.setItem(weekPanelStorageKey(), visible ? "1" : "0");
+  } catch (error) {
+    console.error("儲存週目標欄設定失敗:", error);
+  }
+}
+
+function loadWeekPanelVisibility() {
+  let visible = true;
+  try {
+    visible = localStorage.getItem(weekPanelStorageKey()) !== "0";
+  } catch (error) {
+    console.error("讀取週目標欄設定失敗:", error);
+  }
+  weekPanel.classList.toggle("hidden", !visible);
+  weekPanelToggle.checked = visible;
+}
+
+weekPanelToggle.addEventListener("change", () => {
+  setWeekPanelVisible(weekPanelToggle.checked);
+});
+
+closeWeekPanelBtn.addEventListener("click", () => setWeekPanelVisible(false));
+
 // ==================== 刪除當月項目（依項目／星期） ====================
 
 const deleteAllMonthItemsBtn = document.getElementById("deleteAllMonthItemsBtn");
@@ -2421,6 +2730,13 @@ function setupRealtimeListeners() {
     colorThemeNames = snapshot.exists() ? snapshot.val() : {};
     renderColorThemes();
     refreshColorPickerLabels();
+  });
+
+  // 監聽週目標變化
+  const weeklyGoalsRef = ref(db, `users/${currentUser}/weeklyGoals`);
+  onValue(weeklyGoalsRef, (snapshot) => {
+    weeklyGoalsData = snapshot.exists() ? snapshot.val() : {};
+    renderWeekGoals();
   });
 }
 
