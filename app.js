@@ -330,10 +330,122 @@ async function saveColorTheme(key, text) {
   }
 }
 
+// ==================== 觸控拖曳橋接 ====================
+
+// 手機沒有 HTML5 的 drag 事件，這裡用「長按 + 滑動」合成同一組事件，
+// 讓既有的 dragstart / dragover / drop 邏輯不用改就能在觸控上運作。
+const TOUCH_HOLD_MS = 220;
+const TOUCH_SLOP_PX = 10;
+
+function initTouchDragBridge() {
+  let source = null;
+  let lastTarget = null;
+  let holdTimer = null;
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let transfer = null;
+
+  function fire(el, type, x, y) {
+    if (!el) return;
+    el.dispatchEvent(
+      new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        dataTransfer: transfer,
+        clientX: x,
+        clientY: y,
+      })
+    );
+  }
+
+  function reset() {
+    clearTimeout(holdTimer);
+    source = null;
+    lastTarget = null;
+    dragging = false;
+    transfer = null;
+  }
+
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) return;
+
+      const el = e.target.closest?.('[draggable="true"]');
+      if (!el) return;
+
+      source = el;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+
+      holdTimer = setTimeout(() => {
+        if (!source) return;
+        dragging = true;
+        transfer = new DataTransfer();
+        fire(source, "dragstart", startX, startY);
+        navigator.vibrate?.(15);
+      }, TOUCH_HOLD_MS);
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!source) return;
+      const touch = e.touches[0];
+
+      // 長按成立前就移動 = 想捲動，放棄這次拖曳
+      if (!dragging) {
+        if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > TOUCH_SLOP_PX) {
+          reset();
+        }
+        return;
+      }
+
+      // 拖曳中不要讓頁面跟著捲
+      e.preventDefault();
+
+      const under = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (under !== lastTarget) {
+        fire(lastTarget, "dragleave", touch.clientX, touch.clientY);
+        lastTarget = under;
+      }
+      fire(under, "dragover", touch.clientX, touch.clientY);
+    },
+    { passive: false }
+  );
+
+  function finish(e) {
+    if (!source) return;
+
+    if (dragging) {
+      const touch = e.changedTouches[0];
+      const under = document.elementFromPoint(touch.clientX, touch.clientY);
+      fire(under, "drop", touch.clientX, touch.clientY);
+      fire(source, "dragend", touch.clientX, touch.clientY);
+    }
+
+    reset();
+  }
+
+  document.addEventListener("touchend", finish);
+  document.addEventListener("touchcancel", finish);
+}
+
+initTouchDragBridge();
+
 // ==================== 側邊欄 ====================
+
+// 窄畫面兩側都是浮動抽屜，同時開會疊在一起，所以互斥
+function isNarrowLayout() {
+  return window.innerWidth <= 900;
+}
 
 function setSidebarOpen(open) {
   appBody.classList.toggle("sidebar-hidden", !open);
+  if (open && isNarrowLayout()) applyWeekPanelState(false);
 }
 
 sidebarToggle.addEventListener("click", () => {
@@ -693,9 +805,11 @@ function clampDayItems(container) {
   const visible = Math.max(fits - 1, 0);
   items.slice(visible).forEach((el) => (el.style.display = "none"));
 
+  const hidden = items.length - visible;
   const more = document.createElement("div");
   more.className = "day-item-more";
-  more.textContent = `還有 ${items.length - visible} 個`;
+  // 手機格子只有 50 多 px 寬，長字串會被截成「還有 …」
+  more.textContent = window.innerWidth <= 600 ? `+${hidden}` : `還有 ${hidden} 個`;
   more.addEventListener("click", (e) => {
     // 這裡是「看全部」，不是進編輯模式，所以不讓事件冒泡到格子
     e.stopPropagation();
@@ -879,40 +993,34 @@ function updateCalendarStatus() {
 
           itemDiv.addEventListener("dragend", handleCalendarItemDragEnd);
 
-          // 同一天內拖曳排序
+          // 只有「同一天的另一個項目」才由項目自己處理排序；
+          // 其他情況要讓事件冒泡到日期格，跨日搬移才不會被吞掉
+          const isSameDayReorder = () =>
+            draggedItem &&
+            draggedItem.sourceDate === dateKey &&
+            itemDiv.dataset.itemId !== draggedItem.itemId;
+
           itemDiv.addEventListener("dragover", (e) => {
+            if (!isSameDayReorder()) return;
             e.preventDefault();
             e.stopPropagation();
-            if (
-              draggedItem &&
-              draggedItem.sourceDate === dateKey &&
-              itemDiv.dataset.itemId !== draggedItem.itemId
-            ) {
-              itemDiv.classList.add("drag-over-item");
-            }
+            itemDiv.classList.add("drag-over-item");
           });
 
-          itemDiv.addEventListener("dragleave", (e) => {
+          itemDiv.addEventListener("dragleave", () => {
             itemDiv.classList.remove("drag-over-item");
           });
 
           itemDiv.addEventListener("drop", async (e) => {
+            itemDiv.classList.remove("drag-over-item");
+            if (!isSameDayReorder()) return;
+
             e.preventDefault();
             e.stopPropagation();
-            itemDiv.classList.remove("drag-over-item");
 
-            if (
-              draggedItem &&
-              draggedItem.sourceDate === dateKey &&
-              itemDiv.dataset.itemId !== draggedItem.itemId
-            ) {
-              await reorderDayItems(
-                dateKey,
-                draggedItem.itemId,
-                itemDiv.dataset.itemId
-              );
-              draggedItem = null;
-            }
+            const fromId = draggedItem.itemId;
+            draggedItem = null;
+            await reorderDayItems(dateKey, fromId, itemDiv.dataset.itemId);
           });
 
           // 點擊時打開該日的彈窗（只有在沒有拖曳時）
@@ -2747,6 +2855,7 @@ function weekPanelStorageKey() {
 function applyWeekPanelState(visible) {
   appBody.classList.toggle("week-hidden", !visible);
   weekPanelBtn.classList.toggle("active", visible);
+  if (visible && isNarrowLayout()) appBody.classList.add("sidebar-hidden");
 }
 
 function setWeekPanelVisible(visible) {

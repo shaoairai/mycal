@@ -2423,6 +2423,89 @@ body {
     padding: 12px;
 }
 
+/* ==================== 觸控裝置 ==================== */
+
+/* 沒有滑鼠就沒有 hover，所有靠 hover 浮現的控制項要永遠看得見 */
+@media (hover: none) {
+    .week-add-btn,
+    .week-goal-delete,
+    .week-goal-handle,
+    .goal-item-drag-handle,
+    .year-goal-drag-handle,
+    .item-drag-handle {
+        opacity: 1;
+    }
+
+    .week-goal-handle,
+    .goal-item-drag-handle,
+    .year-goal-drag-handle,
+    .item-drag-handle {
+        opacity: 0.55;
+    }
+}
+
+/* 長按拖曳時不要跳出系統的選字／放大鏡 */
+[draggable="true"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 手指比游標粗，勾選框與小按鈕要放大 */
+@media (hover: none) {
+    .color-theme-check,
+    .week-goal-checkbox,
+    .goal-item-row input[type="checkbox"],
+    .year-goal-item .year-goal-checkbox,
+    .item-checkbox {
+        width: 22px;
+        height: 22px;
+    }
+
+    .color-theme-row,
+    .week-goal-row,
+    .goal-item-row,
+    .year-goal-item {
+        padding-top: 11px;
+        padding-bottom: 11px;
+    }
+
+    .color-theme-name {
+        padding: 4px 0;
+    }
+
+    .week-goal-delete,
+    .year-goal-item .year-goal-delete,
+    .goal-item-row .goal-item-delete,
+    .week-add-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 17px;
+    }
+
+    .item-apply,
+    .item-edit,
+    .item-delete {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .color-option {
+        width: 30px;
+        height: 30px;
+    }
+
+    .nav-arrow {
+        width: 36px;
+        height: 36px;
+    }
+
+    .day-item-more {
+        padding: 4px 6px;
+    }
+}
+
 /* ==================== RWD 平板／手機 ==================== */
 
 /* 窄畫面時側邊欄改為浮動抽屜 */
@@ -2480,7 +2563,10 @@ body {
 }
 
 @media (max-width: 600px) {
+    /* 一行塞不下九顆控制項，會把箭頭擠成幾 px 寬，改成兩行 */
     .header {
+        flex-wrap: wrap;
+        row-gap: 8px;
         padding: 8px 10px;
         gap: 6px;
     }
@@ -2490,21 +2576,40 @@ body {
     }
 
     .header-left {
+        order: 1;
+        flex: 1 1 100%;
         gap: 4px;
+    }
+
+    .header-right {
+        order: 2;
+        flex: 1 1 100%;
+        justify-content: space-between;
+    }
+
+    .header button {
+        flex-shrink: 0;
+    }
+
+    .month-nav {
+        flex: 1;
+        min-width: 0;
     }
 
     .month-nav h2 {
         font-size: 1rem;
         margin-left: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .today-btn {
-        padding: 6px 10px;
-        font-size: 12px;
+        padding: 7px 12px;
+        font-size: 13px;
     }
 
     .nav-btn {
-        padding: 7px 10px;
+        padding: 8px 12px;
         font-size: 13px;
     }
 
@@ -2513,8 +2618,21 @@ body {
         display: none;
     }
 
+    /* 下拉面板改成貼齊整個 header 寬度，避免超出左邊界被切掉 */
+    .header-right {
+        position: relative;
+    }
+
+    .nav-dropdown {
+        position: static;
+    }
+
     .nav-panel {
-        width: min(320px, calc(100vw - 20px));
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: none;
     }
 
     .calendar-section {
@@ -2542,6 +2660,13 @@ body {
     .calendar-day .day-item {
         font-size: 9px;
         padding: 1px 3px;
+    }
+
+    .calendar-day .day-item-more {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary);
+        text-align: center;
     }
 
     .stats-months {
