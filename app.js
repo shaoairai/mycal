@@ -658,6 +658,41 @@ function renderCalendar() {
   updateCalendarStatus();
 }
 
+// 格子高度不夠時，超出的項目收成「還有 X 個」（點格子可看全部）
+const DAY_ITEM_GAP = 2;
+
+function clampDayItems(container) {
+  const items = [...container.children].filter((el) =>
+    el.classList.contains("day-item")
+  );
+  if (items.length === 0) return;
+
+  const available = container.clientHeight;
+  const rowHeight = items[0].offsetHeight + DAY_ITEM_GAP;
+  if (!available || rowHeight <= DAY_ITEM_GAP) return;
+
+  const fits = Math.floor((available + DAY_ITEM_GAP) / rowHeight);
+  if (items.length <= fits) return;
+
+  // 留一列給「還有 X 個」
+  const visible = Math.max(fits - 1, 0);
+  items.slice(visible).forEach((el) => (el.style.display = "none"));
+
+  const more = document.createElement("div");
+  more.className = "day-item-more";
+  more.textContent = `還有 ${items.length - visible} 個`;
+  container.appendChild(more);
+}
+
+// 視窗大小改變時格子高度會變，重算一次
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (currentUser) updateCalendarStatus();
+  }, 150);
+});
+
 // 取得日期項目排序後的 ID 列表
 function getDayItemsSorted(items) {
   return Object.keys(items).sort((a, b) => {
@@ -770,6 +805,8 @@ function updateCalendarStatus() {
             isDragging = false;
           });
         });
+
+      clampDayItems(dayItemsContainer);
     }
 
     // 檢查是否所有項目都完成
@@ -1245,76 +1282,106 @@ const APPLY_PRESETS = {
 
 // 目前要套用的項目 { text, color, clearInput }
 let applyScopeContext = null;
-let selectedWeekdays = new Set(APPLY_PRESETS.all);
 
-// 建立星期選擇器
-WEEKDAY_LABELS.forEach((label, dayOfWeek) => {
-  const chip = document.createElement("button");
-  chip.className = "weekday-chip";
-  chip.dataset.day = dayOfWeek;
-  chip.textContent = label;
-  chip.addEventListener("click", () => {
-    if (selectedWeekdays.has(dayOfWeek)) {
-      selectedWeekdays.delete(dayOfWeek);
-    } else {
-      selectedWeekdays.add(dayOfWeek);
-    }
-    renderApplyScope();
+// 建立一組「預設 + 星期」選擇器，回傳目前選到的星期
+function createScopePicker(presetGroup, picker, onChange) {
+  let selected = new Set(APPLY_PRESETS.all);
+
+  // 找出目前選擇對應哪個預設（找不到就是「自訂」）
+  function matchedPreset() {
+    return (
+      Object.keys(APPLY_PRESETS).find((preset) => {
+        const days = APPLY_PRESETS[preset];
+        return (
+          days.length === selected.size && days.every((d) => selected.has(d))
+        );
+      }) || "custom"
+    );
+  }
+
+  function render() {
+    const preset = matchedPreset();
+    presetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.preset === preset);
+    });
+    picker.querySelectorAll(".weekday-chip").forEach((chip) => {
+      chip.classList.toggle("on", selected.has(Number(chip.dataset.day)));
+    });
+    onChange();
+  }
+
+  WEEKDAY_LABELS.forEach((label, dayOfWeek) => {
+    const chip = document.createElement("button");
+    chip.className = "weekday-chip";
+    chip.dataset.day = dayOfWeek;
+    chip.textContent = label;
+    chip.addEventListener("click", () => {
+      if (selected.has(dayOfWeek)) {
+        selected.delete(dayOfWeek);
+      } else {
+        selected.add(dayOfWeek);
+      }
+      render();
+    });
+    picker.appendChild(chip);
   });
-  weekdayPicker.appendChild(chip);
-});
 
-// 依選到的星期，統計當月會新增幾天
-function countApplyTargets(text) {
+  presetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // 「自訂」只是狀態顯示，不改變目前選擇
+      if (btn.dataset.preset === "custom") return;
+      selected = new Set(APPLY_PRESETS[btn.dataset.preset]);
+      render();
+    });
+  });
+
+  return {
+    get days() {
+      return selected;
+    },
+    reset() {
+      selected = new Set(APPLY_PRESETS.all);
+      render();
+    },
+    render,
+  };
+}
+
+// 走訪當月符合星期條件的日期
+function forEachDayInScope(weekdays, callback) {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
+    if (!weekdays.has(dayOfWeek)) continue;
+    const dateKey = getDateKey(currentYear, currentMonth, day);
+    callback(dateKey, dailyGoalsData[dateKey]?.items || {});
+  }
+}
+
+const applyScopePicker = createScopePicker(
+  applyPresetGroup,
+  weekdayPicker,
+  renderApplyScopePreview
+);
+
+function renderApplyScopePreview() {
+  if (!applyScopeContext) return;
+
+  const { text } = applyScopeContext;
   let willAdd = 0;
   let skipped = 0;
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
-    if (!selectedWeekdays.has(dayOfWeek)) continue;
-
-    const dateKey = getDateKey(currentYear, currentMonth, day);
-    const items = dailyGoalsData[dateKey]?.items || {};
+  forEachDayInScope(applyScopePicker.days, (dateKey, items) => {
     if (Object.values(items).some((item) => item.text === text)) {
       skipped++;
     } else {
       willAdd++;
     }
-  }
-
-  return { willAdd, skipped };
-}
-
-// 找出目前選擇對應哪個預設（找不到就是「自訂」）
-function matchedPreset() {
-  return (
-    Object.keys(APPLY_PRESETS).find((preset) => {
-      const days = APPLY_PRESETS[preset];
-      return (
-        days.length === selectedWeekdays.size &&
-        days.every((d) => selectedWeekdays.has(d))
-      );
-    }) || "custom"
-  );
-}
-
-function renderApplyScope() {
-  const preset = matchedPreset();
-  applyPresetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.preset === preset);
   });
 
-  weekdayPicker.querySelectorAll(".weekday-chip").forEach((chip) => {
-    chip.classList.toggle("on", selectedWeekdays.has(Number(chip.dataset.day)));
-  });
-
-  if (!applyScopeContext) return;
-
-  const { willAdd, skipped } = countApplyTargets(applyScopeContext.text);
   const skipText = skipped > 0 ? `，另有 ${skipped} 天已存在會跳過` : "";
   applyScopePreview.textContent =
-    selectedWeekdays.size === 0
+    applyScopePicker.days.size === 0
       ? "請至少選擇一個星期"
       : `將新增到 ${willAdd} 天${skipText}`;
   confirmApplyScopeBtn.disabled = willAdd === 0;
@@ -1326,8 +1393,7 @@ function openApplyScopeModal(text, color, clearInput = false) {
   applyScopeTarget.innerHTML = `將「<strong>${text}</strong>」套用到 ${currentYear} 年 ${
     currentMonth + 1
   } 月的：`;
-  selectedWeekdays = new Set(APPLY_PRESETS.all);
-  renderApplyScope();
+  applyScopePicker.reset();
   applyScopeModal.classList.remove("hidden");
 }
 
@@ -1341,20 +1407,11 @@ applyScopeModal.addEventListener("click", (e) => {
   if (e.target === applyScopeModal) closeApplyScope();
 });
 
-applyPresetGroup.querySelectorAll(".apply-preset").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const preset = btn.dataset.preset;
-    // 「自訂」只是狀態顯示，不改變目前選擇
-    if (preset === "custom") return;
-    selectedWeekdays = new Set(APPLY_PRESETS[preset]);
-    renderApplyScope();
-  });
-});
-
 confirmApplyScopeBtn.addEventListener("click", async () => {
   if (!applyScopeContext || !currentUser) return;
 
   const { text, color, clearInput } = applyScopeContext;
+  const selectedWeekdays = applyScopePicker.days;
 
   try {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -2167,34 +2224,123 @@ editMonthGoalInput.addEventListener("keypress", (e) => {
   if (e.key === "Enter") saveEditMonthGoal();
 });
 
-// ==================== 刪除當月所有日曆項目 ====================
+// ==================== 刪除當月項目（依項目／星期） ====================
 
 const deleteAllMonthItemsBtn = document.getElementById("deleteAllMonthItemsBtn");
+const deleteScopeModal = document.getElementById("deleteScopeModal");
+const closeDeleteScopeModal = document.getElementById("closeDeleteScopeModal");
+const deleteScopeTitle = document.getElementById("deleteScopeTitle");
+const deleteTargetSelect = document.getElementById("deleteTargetSelect");
+const deletePresetGroup = document.getElementById("deletePresetGroup");
+const deleteWeekdayPicker = document.getElementById("deleteWeekdayPicker");
+const deleteScopePreview = document.getElementById("deleteScopePreview");
+const confirmDeleteScopeBtn = document.getElementById("confirmDeleteScopeBtn");
 
-deleteAllMonthItemsBtn.addEventListener("click", async () => {
+const deleteScopePicker = createScopePicker(
+  deletePresetGroup,
+  deleteWeekdayPicker,
+  renderDeleteScopePreview
+);
+
+// 蒐集當月出現過的項目名稱與次數
+function collectMonthItemTexts() {
+  const counts = new Map();
+  forEachDayInScope(new Set(APPLY_PRESETS.all), (dateKey, items) => {
+    Object.values(items).forEach((item) => {
+      counts.set(item.text, (counts.get(item.text) || 0) + 1);
+    });
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function renderDeleteScopePreview() {
+  const target = deleteTargetSelect.value;
+  let itemCount = 0;
+  let dayCount = 0;
+
+  forEachDayInScope(deleteScopePicker.days, (dateKey, items) => {
+    const matched = Object.values(items).filter(
+      (item) => !target || item.text === target
+    );
+    if (matched.length > 0) {
+      dayCount++;
+      itemCount += matched.length;
+    }
+  });
+
+  deleteScopePreview.textContent =
+    deleteScopePicker.days.size === 0
+      ? "請至少選擇一個星期"
+      : `將刪除 ${itemCount} 個項目（分布在 ${dayCount} 天）`;
+  confirmDeleteScopeBtn.disabled = itemCount === 0;
+}
+
+deleteTargetSelect.addEventListener("change", renderDeleteScopePreview);
+
+deleteAllMonthItemsBtn.addEventListener("click", () => {
   if (!currentUser) return;
 
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const monthName = `${currentYear}年${currentMonth + 1}月`;
+  deleteScopeTitle.textContent = `刪除 ${currentYear} 年 ${
+    currentMonth + 1
+  } 月項目`;
 
+  // 重建項目下拉選單
+  deleteTargetSelect.innerHTML = "";
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "全部項目";
+  deleteTargetSelect.appendChild(allOption);
+
+  collectMonthItemTexts().forEach(([text, count]) => {
+    const option = document.createElement("option");
+    option.value = text;
+    option.textContent = `${text}（${count}）`;
+    deleteTargetSelect.appendChild(option);
+  });
+
+  deleteScopePicker.reset();
+  deleteScopeModal.classList.remove("hidden");
+});
+
+function closeDeleteScope() {
+  deleteScopeModal.classList.add("hidden");
+}
+
+closeDeleteScopeModal.addEventListener("click", closeDeleteScope);
+deleteScopeModal.addEventListener("click", (e) => {
+  if (e.target === deleteScopeModal) closeDeleteScope();
+});
+
+confirmDeleteScopeBtn.addEventListener("click", async () => {
+  if (!currentUser) return;
+
+  const target = deleteTargetSelect.value;
+  const updates = {};
+  let itemCount = 0;
+
+  forEachDayInScope(deleteScopePicker.days, (dateKey, items) => {
+    Object.keys(items).forEach((itemId) => {
+      if (target && items[itemId].text !== target) return;
+      updates[`users/${currentUser}/dailyGoals/${dateKey}/items/${itemId}`] =
+        null;
+      itemCount++;
+    });
+  });
+
+  if (itemCount === 0) return;
+
+  const targetName = target ? `「${target}」` : "所有項目";
   const confirmDelete = confirm(
-    `確定要刪除 ${monthName} 日曆中的所有項目嗎？\n此操作無法復原！`
+    `確定要刪除 ${currentYear} 年 ${
+      currentMonth + 1
+    } 月的 ${targetName} 共 ${itemCount} 個項目嗎？\n此操作無法復原！`
   );
   if (!confirmDelete) return;
 
   try {
-    const updates = {};
-
-    // 遍歷該月每一天，收集所有要刪除的項目
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateKey = getDateKey(currentYear, currentMonth, day);
-      updates[`users/${currentUser}/dailyGoals/${dateKey}/items`] = null;
-    }
-
-    // 批次更新（刪除）
     await update(ref(db), updates);
-
-    alert(`已刪除 ${monthName} 的所有日曆項目`);
+    closeDeleteScope();
+    alert(`已刪除 ${itemCount} 個項目`);
   } catch (error) {
     console.error("刪除當月項目失敗:", error);
     alert("刪除失敗，請稍後再試");

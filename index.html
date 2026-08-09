@@ -90,7 +90,7 @@
               <button id="viewStatsBtn">📊 統計總覽</button>
               <button id="changePasswordBtn">🔑 修改密碼</button>
               <button id="deleteAllMonthItemsBtn" class="menu-danger">
-                🗑 刪除當月所有項目
+                🗑 刪除當月項目…
               </button>
               <button id="logoutBtn">↩ 登出</button>
             </div>
@@ -187,6 +187,31 @@
             <p id="applyScopePreview" class="apply-scope-preview"></p>
 
             <button id="confirmApplyScopeBtn">確定套用</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 刪除範圍彈窗 -->
+      <div id="deleteScopeModal" class="modal hidden">
+        <div class="modal-content">
+          <span class="modal-close" id="closeDeleteScopeModal">&times;</span>
+          <h3 id="deleteScopeTitle">刪除當月項目</h3>
+          <div class="modal-body">
+            <label>刪除哪個項目</label>
+            <select id="deleteTargetSelect" class="scope-select"></select>
+
+            <label>刪除哪些日子</label>
+            <div class="apply-preset-group" id="deletePresetGroup">
+              <button class="apply-preset" data-preset="all">整月</button>
+              <button class="apply-preset" data-preset="weekday">平日</button>
+              <button class="apply-preset" data-preset="weekend">假日</button>
+              <button class="apply-preset" data-preset="custom">自訂</button>
+            </div>
+            <div class="weekday-picker" id="deleteWeekdayPicker"></div>
+
+            <p id="deleteScopePreview" class="apply-scope-preview"></p>
+
+            <button id="confirmDeleteScopeBtn">確定刪除</button>
           </div>
         </div>
       </div>
