@@ -1135,11 +1135,12 @@ body {
     gap: 4px;
 }
 
+/* 沒選到的一律灰底，選到的才實心上色 */
 .schedule-btn {
-    padding: 4px 9px;
+    padding: 5px 10px;
     font-size: 12px;
-    border: 1px solid var(--border-light);
-    background: var(--bg-card);
+    border: none;
+    background: var(--bg-muted);
     color: var(--text-secondary);
     border-radius: 999px;
     cursor: pointer;
@@ -1147,13 +1148,18 @@ body {
 }
 
 .schedule-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .schedule-btn.active {
     background: var(--primary);
-    border-color: var(--primary);
+    color: var(--text-on-primary);
+    font-weight: 600;
+}
+
+.schedule-btn.active:hover {
+    background: var(--primary-hover);
     color: var(--text-on-primary);
 }
 
