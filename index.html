@@ -70,18 +70,13 @@
             </div>
           </div>
 
-          <div class="nav-dropdown">
-            <button id="progressNavBtn" class="nav-btn progress-chip">
-              📊 <span id="progressRate">0%</span>
-            </button>
-            <div id="progressPanel" class="nav-panel hidden">
-              <h4>📊 本月達成率</h4>
-              <div class="progress-bar">
-                <div id="progressBarFill" class="progress-bar-fill"></div>
-              </div>
-              <p id="progressDetail" class="progress-detail"></p>
-            </div>
-          </div>
+          <button
+            id="progressNavBtn"
+            class="nav-btn progress-chip"
+            title="本月達成率"
+          >
+            📊 <span id="progressRate">0%</span>
+          </button>
 
           <button id="weekPanelBtn" class="icon-btn week-toggle-btn" title="顯示／隱藏週目標欄">
             週
@@ -325,6 +320,31 @@
               <div class="color-options" id="editYearGoalColorPicker"></div>
             </div>
             <button id="saveEditYearGoalBtn">儲存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 本月達成率彈窗 -->
+      <div id="progressModal" class="modal hidden">
+        <div class="modal-content modal-large">
+          <span class="modal-close" id="closeProgressModal">&times;</span>
+          <h3 id="progressTitle">📊 本月達成率</h3>
+          <div class="modal-body">
+            <div class="progress-summary">
+              <span id="progressRateBig" class="progress-rate-big">0%</span>
+              <div class="progress-summary-main">
+                <div class="progress-bar">
+                  <div id="progressBarFill" class="progress-bar-fill"></div>
+                </div>
+                <p id="progressDetail" class="progress-detail"></p>
+              </div>
+            </div>
+
+            <p class="progress-note">
+              當天有排上該顏色的項目就算達成，不用勾完成。每個主題可各自決定要用哪些日子計算。
+            </p>
+
+            <div id="progressThemeList" class="progress-theme-list"></div>
           </div>
         </div>
       </div>

@@ -1058,6 +1058,120 @@ body {
     color: var(--text-secondary);
 }
 
+/* ==================== 本月達成率彈窗 ==================== */
+.progress-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.progress-rate-big {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.progress-summary-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.progress-note {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    background: var(--bg-muted);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+}
+
+.progress-theme-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.progress-theme {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+}
+
+/* 本月沒排過這個顏色，不列入計算，視覺上也淡掉 */
+.progress-theme.unused {
+    opacity: 0.5;
+}
+
+.progress-theme-name {
+    font-size: 14px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.progress-theme-stat {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.progress-theme-bar {
+    grid-column: 1 / -1;
+    height: 6px;
+    margin-bottom: 0;
+}
+
+.schedule-picker {
+    display: flex;
+    gap: 4px;
+}
+
+.schedule-btn {
+    padding: 4px 9px;
+    font-size: 12px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.schedule-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.schedule-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-on-primary);
+}
+
+@media (max-width: 600px) {
+    .progress-theme {
+        grid-template-columns: auto 1fr auto;
+    }
+
+    .schedule-picker {
+        grid-column: 1 / -1;
+        justify-content: space-between;
+    }
+
+    .schedule-btn {
+        flex: 1;
+    }
+}
+
 /* ==================== 其他人日曆區 ==================== */
 .shared-calendars-section {
     max-width: 1200px;
@@ -1383,15 +1497,23 @@ body {
     font-weight: bold;
 }
 
-/* 項目顏色 - 鮮豔色調 */
-.calendar-day .day-item.item-color-red { background-color: #E74C3C !important; }
-.calendar-day .day-item.item-color-orange { background-color: #E67E22 !important; }
-.calendar-day .day-item.item-color-yellow { background-color: #F1C40F !important; }
-.calendar-day .day-item.item-color-cyan { background-color: #1ABC9C !important; }
-.calendar-day .day-item.item-color-blue { background-color: #3498DB !important; }
-.calendar-day .day-item.item-color-purple { background-color: #9B59B6 !important; }
-.calendar-day .day-item.item-color-pink { background-color: #E91E63 !important; }
-.calendar-day .day-item.item-color-gray { background-color: #7F8C8D !important; }
+/* 項目顏色 - 鮮豔色調（日曆格子與快速檢視共用） */
+.calendar-day .day-item.item-color-red,
+.day-peek-item.item-color-red { background-color: #E74C3C !important; }
+.calendar-day .day-item.item-color-orange,
+.day-peek-item.item-color-orange { background-color: #E67E22 !important; }
+.calendar-day .day-item.item-color-yellow,
+.day-peek-item.item-color-yellow { background-color: #F1C40F !important; }
+.calendar-day .day-item.item-color-cyan,
+.day-peek-item.item-color-cyan { background-color: #1ABC9C !important; }
+.calendar-day .day-item.item-color-blue,
+.day-peek-item.item-color-blue { background-color: #3498DB !important; }
+.calendar-day .day-item.item-color-purple,
+.day-peek-item.item-color-purple { background-color: #9B59B6 !important; }
+.calendar-day .day-item.item-color-pink,
+.day-peek-item.item-color-pink { background-color: #E91E63 !important; }
+.calendar-day .day-item.item-color-gray,
+.day-peek-item.item-color-gray { background-color: #7F8C8D !important; }
 
 /* 其他人的項目顏色 */
 .calendar-day .day-item.other-item-0 { background-color: #EBF5FB; color: #2980B9; }
@@ -1466,25 +1588,25 @@ body {
     gap: 4px;
 }
 
+/* 樣式與日曆格子上的項目一致：整塊填色的色票 */
 .day-peek-item {
     font-size: 12px;
     line-height: 1.4;
-    padding: 5px 8px;
-    background: var(--bg-muted);
-    border-left: 3px solid var(--border);
-    border-radius: 5px;
-    color: var(--text-primary);
+    padding: 4px 8px;
+    background-color: #3498DB;
+    border-radius: 4px;
+    color: var(--text-on-primary);
     word-break: break-word;
 }
 
 .day-peek-item.completed {
     text-decoration: line-through;
-    color: var(--text-secondary);
-    opacity: 0.75;
+    opacity: 0.85;
 }
 
 .day-peek-item.completed::before {
-    content: "✓ ";
+    content: "✓";
+    margin-right: 2px;
     font-weight: bold;
 }
 

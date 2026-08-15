@@ -57,6 +57,15 @@ const monthGoalsList = document.getElementById("monthGoalsList");
 
 const progressRate = document.getElementById("progressRate");
 const progressDetail = document.getElementById("progressDetail");
+const progressNavBtn = document.getElementById("progressNavBtn");
+const progressModal = document.getElementById("progressModal");
+const closeProgressModal = document.getElementById("closeProgressModal");
+const progressTitle = document.getElementById("progressTitle");
+const progressRateBig = document.getElementById("progressRateBig");
+const progressThemeList = document.getElementById("progressThemeList");
+
+// 最近一次 calculateProgressRate() 的結果
+let currentProgress = null;
 
 const prevMonthBtn = document.getElementById("prevMonthBtn");
 const nextMonthBtn = document.getElementById("nextMonthBtn");
@@ -173,10 +182,22 @@ const COLOR_DEFS = [
   { key: "gray", hex: "#7F8C8D", label: "灰色" },
 ];
 
+// 達成率的計算範圍：每個顏色主題可以各自挑要算哪些日子
+const SCHEDULE_DEFS = [
+  { key: "daily", label: "每日" },
+  { key: "weekday", label: "平日" },
+  { key: "weekend", label: "假日" },
+  { key: "off", label: "不計" },
+];
+const DEFAULT_SCHEDULE = "daily";
+
 const colorThemeList = document.getElementById("colorThemeList");
 
 // 使用者自訂的顏色主題名稱 { blue: "運動", ... }
 let colorThemeNames = {};
+
+// 各顏色的計算範圍 { blue: "weekday", ... }，未設定即 DEFAULT_SCHEDULE
+let colorSchedules = {};
 
 // 目前隱藏的顏色（僅影響日曆顯示，存在本機）
 let hiddenColors = new Set();
@@ -184,6 +205,19 @@ let hiddenColors = new Set();
 function getColorLabel(key) {
   const def = COLOR_DEFS.find((c) => c.key === key);
   return colorThemeNames[key] || def?.label || key;
+}
+
+function getColorSchedule(schedules, key) {
+  const value = schedules?.[key];
+  return SCHEDULE_DEFS.some((s) => s.key === value) ? value : DEFAULT_SCHEDULE;
+}
+
+// 這一天要不要算進該主題的分母
+function scheduleCoversDay(schedule, dayOfWeek) {
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  if (schedule === "weekday") return !isWeekend;
+  if (schedule === "weekend") return isWeekend;
+  return schedule === "daily";
 }
 
 // 產生所有顏色選擇器的色票（必須在下方的點擊監聽註冊之前執行）
@@ -330,6 +364,24 @@ async function saveColorTheme(key, text) {
   }
 }
 
+async function saveColorSchedule(key, schedule) {
+  // 先更新本地再存，達成率不用等 Firebase 回來才重算
+  colorSchedules[key] = schedule;
+  calculateProgressRate();
+
+  if (!currentUser) return;
+
+  try {
+    await set(
+      ref(db, `users/${currentUser}/colorSchedules/${key}`),
+      schedule === DEFAULT_SCHEDULE ? null : schedule
+    );
+  } catch (error) {
+    console.error("儲存計算範圍失敗:", error);
+    alert("儲存失敗，請稍後再試");
+  }
+}
+
 // ==================== 觸控拖曳橋接 ====================
 
 // 手機沒有 HTML5 的 drag 事件，這裡用「長按 + 滑動」合成同一組事件，
@@ -461,7 +513,6 @@ setSidebarOpen(window.innerWidth > 900);
 
 const navDropdowns = [
   ["yearGoalsNavBtn", "yearGoalsPanel"],
-  ["progressNavBtn", "progressPanel"],
   ["moreNavBtn", "moreMenu"],
 ].map(([btnId, panelId]) => ({
   btn: document.getElementById(btnId),
@@ -851,8 +902,9 @@ function renderDayPeek() {
     }
 
     const row = document.createElement("div");
-    row.className = `day-peek-item${item.completed ? " completed" : ""}`;
-    row.style.borderLeftColor = getColorHex(color);
+    row.className = `day-peek-item${
+      item.completed ? " completed" : ""
+    } item-color-${color}`;
     row.textContent = item.text;
     dayPeekList.appendChild(row);
   });
@@ -3009,39 +3061,68 @@ confirmDeleteScopeBtn.addEventListener("click", async () => {
 
 // ==================== 達成率計算 ====================
 
+// 一個月的達成率：每個顏色主題各自挑要算的日子（每日／平日／假日），
+// 該天只要有排上這個顏色的項目就算達成，不必勾完成。
+// 整月未出現過的主題不列入計算，免得沒在用的顏色一直拖低分母。
+function computeMonthProgress(dailyGoals, year, month, schedules) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const themes = COLOR_DEFS.map(({ key, hex }) => ({
+    key,
+    hex,
+    schedule: getColorSchedule(schedules, key),
+    targetDays: 0,
+    doneDays: 0,
+    used: false,
+  }));
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = getDateKey(year, month, day);
+    const items = dailyGoals?.[dateKey]?.items || {};
+    const colorsToday = new Set(
+      Object.values(items).map((item) => item.color || "blue")
+    );
+    const dayOfWeek = new Date(year, month, day).getDay();
+
+    themes.forEach((theme) => {
+      if (colorsToday.has(theme.key)) theme.used = true;
+      if (!scheduleCoversDay(theme.schedule, dayOfWeek)) return;
+      theme.targetDays++;
+      if (colorsToday.has(theme.key)) theme.doneDays++;
+    });
+  }
+
+  const counted = themes.filter(
+    (theme) => theme.used && theme.schedule !== "off"
+  );
+  const targetDays = counted.reduce((sum, t) => sum + t.targetDays, 0);
+  const doneDays = counted.reduce((sum, t) => sum + t.doneDays, 0);
+  const rate = targetDays > 0 ? Math.round((doneDays / targetDays) * 100) : null;
+
+  return { themes, counted, targetDays, doneDays, rate };
+}
+
 function calculateProgressRate() {
   const today = getToday();
   const isCurrentMonth =
     currentYear === today.year && currentMonth === today.month;
 
-  // 取得該月總天數
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  currentProgress = computeMonthProgress(
+    dailyGoalsData,
+    currentYear,
+    currentMonth,
+    colorSchedules
+  );
+  const { counted, targetDays, doneDays } = currentProgress;
+  const rate = currentProgress.rate ?? 0;
 
-  let daysWithItems = 0;
-  let daysAllCompleted = 0;
-
-  // 遍歷整個月的每一天（不限於今天之前）
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateKey = getDateKey(currentYear, currentMonth, day);
-    const data = dailyGoalsData[dateKey];
-    const items = data?.items || {};
-    const itemKeys = Object.keys(items);
-
-    if (itemKeys.length > 0) {
-      daysWithItems++;
-      // 只有當天所有項目都完成，才算完成一天
-      const allCompleted = itemKeys.every((id) => items[id].completed === true);
-      if (allCompleted) {
-        daysAllCompleted++;
-      }
-    }
-  }
-
-  // 以有項目的天數為分母計算達成率
-  const rate = daysWithItems > 0 ? Math.round((daysAllCompleted / daysWithItems) * 100) : 0;
   progressRate.textContent = `${rate}%`;
-  progressDetail.textContent = `全完成 ${daysAllCompleted} 天 / 有項目 ${daysWithItems} 天`;
+  progressRateBig.textContent = `${rate}%`;
+  progressDetail.textContent = counted.length
+    ? `達成 ${doneDays} 天 / 應做 ${targetDays} 天（${counted.length} 個主題）`
+    : "本月還沒有排任何項目";
   progressBarFill.style.width = `${rate}%`;
+  renderProgressThemes();
 
   // 更新 Firebase 中的達成率
   if (currentUser && isCurrentMonth) {
@@ -3053,6 +3134,80 @@ function calculateProgressRate() {
     update(monthGoalRef, { progressRate: rate / 100 }).catch(console.error);
   }
 }
+
+// ==================== 達成率彈窗 ====================
+
+function renderProgressThemes() {
+  if (!currentProgress) return;
+
+  progressThemeList.innerHTML = "";
+
+  currentProgress.themes.forEach((theme) => {
+    const row = document.createElement("div");
+    row.className = "progress-theme";
+    if (!theme.used) row.classList.add("unused");
+
+    const dot = document.createElement("span");
+    dot.className = "color-theme-dot";
+    dot.style.background = theme.hex;
+
+    const name = document.createElement("span");
+    name.className = "progress-theme-name";
+    name.textContent = getColorLabel(theme.key);
+
+    const picker = document.createElement("div");
+    picker.className = "schedule-picker";
+    SCHEDULE_DEFS.forEach(({ key, label }) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `schedule-btn${theme.schedule === key ? " active" : ""}`;
+      btn.textContent = label;
+      btn.addEventListener("click", () => saveColorSchedule(theme.key, key));
+      picker.appendChild(btn);
+    });
+
+    const stat = document.createElement("span");
+    stat.className = "progress-theme-stat";
+    if (!theme.used) {
+      stat.textContent = "本月未使用";
+    } else if (theme.schedule === "off" || theme.targetDays === 0) {
+      stat.textContent = "—";
+    } else {
+      const rate = Math.round((theme.doneDays / theme.targetDays) * 100);
+      stat.textContent = `${theme.doneDays}/${theme.targetDays}　${rate}%`;
+    }
+
+    const bar = document.createElement("div");
+    bar.className = "progress-bar progress-theme-bar";
+    const fill = document.createElement("div");
+    fill.className = "progress-bar-fill";
+    fill.style.background = theme.hex;
+    fill.style.width =
+      theme.used && theme.schedule !== "off" && theme.targetDays > 0
+        ? `${Math.round((theme.doneDays / theme.targetDays) * 100)}%`
+        : "0";
+    bar.appendChild(fill);
+
+    row.append(dot, name, stat, picker, bar);
+    progressThemeList.appendChild(row);
+  });
+}
+
+progressNavBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  closeNavPanels();
+  progressTitle.textContent = `📊 ${currentMonth + 1} 月達成率`;
+  calculateProgressRate();
+  progressModal.classList.remove("hidden");
+});
+
+closeProgressModal.addEventListener("click", () => {
+  progressModal.classList.add("hidden");
+});
+
+progressModal.addEventListener("click", (e) => {
+  if (e.target === progressModal) progressModal.classList.add("hidden");
+});
 
 // ==================== 即時監聽 ====================
 
@@ -3075,11 +3230,19 @@ function setupRealtimeListeners() {
     }
   });
 
+  // 監聽各顏色的達成率計算範圍
+  const colorSchedulesRef = ref(db, `users/${currentUser}/colorSchedules`);
+  onValue(colorSchedulesRef, (snapshot) => {
+    colorSchedules = snapshot.exists() ? snapshot.val() : {};
+    calculateProgressRate();
+  });
+
   // 監聽顏色主題變化
   const colorThemesRef = ref(db, `users/${currentUser}/colorThemes`);
   onValue(colorThemesRef, (snapshot) => {
     colorThemeNames = snapshot.exists() ? snapshot.val() : {};
     renderColorThemes();
+    renderProgressThemes();
     refreshColorPickerLabels();
   });
 
@@ -3205,50 +3368,27 @@ function renderStatsView() {
   statsContent.innerHTML = html;
 }
 
-// 取得使用者各月達成率
+// 取得使用者各月達成率（與本月達成率相同邏輯）
 async function getUserMonthlyRates(phone, year) {
+  let dailyGoals = {};
+  let schedules = {};
+
+  try {
+    const [dailySnap, scheduleSnap] = await Promise.all([
+      get(ref(db, `users/${phone}/dailyGoals`)),
+      get(ref(db, `users/${phone}/colorSchedules`)),
+    ]);
+    if (dailySnap.exists()) dailyGoals = dailySnap.val();
+    if (scheduleSnap.exists()) schedules = scheduleSnap.val();
+  } catch (error) {
+    console.error("讀取達成率資料失敗:", error);
+    return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, rate: null }));
+  }
+
   const rates = [];
-
   for (let month = 0; month < 12; month++) {
-    const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
-
-    try {
-      // 取得該月的每日目標資料
-      const dailyGoalsRef = ref(db, `users/${phone}/dailyGoals`);
-      const snapshot = await get(dailyGoalsRef);
-
-      let daysWithItems = 0;
-      let daysAllCompleted = 0;
-
-      if (snapshot.exists()) {
-        const dailyGoals = snapshot.val();
-
-        // 計算當月的項目（與本月達成率相同邏輯）
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const dayData = dailyGoals[dateKey];
-
-          if (dayData && dayData.items) {
-            const items = Object.values(dayData.items);
-            if (items.length > 0) {
-              daysWithItems++;
-              // 只有當天所有項目都完成，才算完成一天
-              const allCompleted = items.every((item) => item.completed === true);
-              if (allCompleted) {
-                daysAllCompleted++;
-              }
-            }
-          }
-        }
-      }
-
-      // 以有項目的天數為分母計算達成率
-      const rate = daysWithItems > 0 ? Math.round((daysAllCompleted / daysWithItems) * 100) : null;
-      rates.push({ month: month + 1, rate });
-    } catch (error) {
-      rates.push({ month: month + 1, rate: null });
-    }
+    const { rate } = computeMonthProgress(dailyGoals, year, month, schedules);
+    rates.push({ month: month + 1, rate });
   }
 
   return rates;
