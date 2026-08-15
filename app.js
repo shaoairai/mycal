@@ -97,7 +97,6 @@ const modalDate = document.getElementById("modalDate");
 const itemsList = document.getElementById("itemsList");
 const newItemInput = document.getElementById("newItemInput");
 const addItemBtn = document.getElementById("addItemBtn");
-const addAndApplyBtn = document.getElementById("addAndApplyBtn");
 
 const editItemModal = document.getElementById("editItemModal");
 const closeEditModal = document.getElementById("closeEditModal");
@@ -1393,19 +1392,6 @@ editItemColorPicker.querySelectorAll(".color-option").forEach((option) => {
   });
 });
 
-// 新增並套用到多天
-addAndApplyBtn.addEventListener("click", () => {
-  if (!currentUser || !selectedDate) return;
-
-  const text = newItemInput.value.trim();
-  if (!text) {
-    alert("請輸入項目內容");
-    return;
-  }
-
-  openApplyScopeModal(text, selectedNewItemColor, true);
-});
-
 // ==================== 拖曳功能 ====================
 
 // 日曆上的項目拖曳開始
@@ -1566,7 +1552,7 @@ const APPLY_PRESETS = {
   weekend: [0, 6],
 };
 
-// 目前要套用的項目 { text, color, clearInput }
+// 目前要套用的項目 { text, color }
 let applyScopeContext = null;
 
 // 建立一組「預設 + 星期」選擇器，回傳目前選到的星期
@@ -1674,8 +1660,8 @@ function renderApplyScopePreview() {
 }
 
 // 開啟套用範圍彈窗
-function openApplyScopeModal(text, color, clearInput = false) {
-  applyScopeContext = { text, color, clearInput };
+function openApplyScopeModal(text, color) {
+  applyScopeContext = { text, color };
   applyScopeTarget.innerHTML = `將「<strong>${text}</strong>」套用到 ${currentYear} 年 ${
     currentMonth + 1
   } 月的：`;
@@ -1696,7 +1682,7 @@ applyScopeModal.addEventListener("click", (e) => {
 confirmApplyScopeBtn.addEventListener("click", async () => {
   if (!applyScopeContext || !currentUser) return;
 
-  const { text, color, clearInput } = applyScopeContext;
+  const { text, color } = applyScopeContext;
   const selectedWeekdays = applyScopePicker.days;
 
   try {
@@ -1740,7 +1726,6 @@ confirmApplyScopeBtn.addEventListener("click", async () => {
     const dailyGoalsRef = ref(db, `users/${currentUser}/dailyGoals`);
     await update(dailyGoalsRef, updates);
 
-    if (clearInput) newItemInput.value = "";
     closeApplyScope();
     alert(`已成功將「${text}」新增到 ${addedCount} 天！`);
   } catch (error) {
