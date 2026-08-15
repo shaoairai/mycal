@@ -2645,8 +2645,9 @@ function renderWeekGoals() {
 
 function createWeekGoalRow(week, itemId, item, color) {
   const row = document.createElement("div");
-  row.className = `week-goal-row${item.completed ? " completed" : ""}`;
-  row.style.borderLeftColor = getColorHex(color);
+  row.className = `week-goal-row item-color-${color}${
+    item.completed ? " completed" : ""
+  }`;
   row.draggable = true;
   row.dataset.id = itemId;
 
@@ -2658,7 +2659,6 @@ function createWeekGoalRow(week, itemId, item, color) {
   checkbox.type = "checkbox";
   checkbox.className = "week-goal-checkbox";
   checkbox.checked = !!item.completed;
-  checkbox.style.accentColor = getColorHex(color);
   checkbox.addEventListener("change", () =>
     toggleWeekGoalItem(week.key, itemId, checkbox.checked)
   );

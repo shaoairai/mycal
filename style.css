@@ -716,21 +716,25 @@ body {
     display: none;
 }
 
-/* 單條週目標：左側色條標示所屬顏色主題 */
+/* 單條週目標：整塊就是所屬主題的顏色，跟日曆／彈窗同一套色塊 */
 .week-goal-row {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 10px;
-    background: var(--bg-muted);
-    border-left: 3px solid var(--border);
+    background-color: #3498DB;
+    color: var(--text-on-primary);
     border-radius: 6px;
     cursor: grab;
-    transition: background 0.2s, transform 0.15s;
+    transition: filter 0.2s, transform 0.15s;
 }
 
 .week-goal-row:hover {
-    background: var(--bg-hover);
+    filter: brightness(1.06);
+}
+
+.week-goal-row.completed {
+    opacity: 0.85;
 }
 
 .week-goal-row.dragging {
@@ -739,33 +743,56 @@ body {
 }
 
 .week-goal-row.drag-over {
-    background: var(--primary-soft);
-    box-shadow: inset 0 2px 0 var(--primary);
+    outline: 2px dashed var(--text-on-primary);
+    outline-offset: -3px;
 }
 
 .week-goal-handle {
     font-size: 11px;
-    color: var(--text-secondary);
+    color: var(--text-on-primary);
     opacity: 0;
     user-select: none;
     transition: opacity 0.2s;
 }
 
 .week-goal-row:hover .week-goal-handle {
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 .week-goal-checkbox {
-    width: 15px;
-    height: 15px;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     flex-shrink: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    position: relative;
+    transition: background 0.2s;
+}
+
+.week-goal-checkbox:hover {
+    background: #FFFFFF;
+}
+
+.week-goal-checkbox:checked::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
 }
 
 .week-goal-text {
     flex: 1;
     font-size: 13px;
-    color: var(--text-primary);
     cursor: pointer;
     line-height: 1.4;
     word-break: break-word;
@@ -777,15 +804,15 @@ body {
 
 .week-goal-row.completed .week-goal-text {
     text-decoration: line-through;
-    color: var(--text-secondary);
 }
 
 .week-goal-delete {
     width: 20px;
     height: 20px;
     border: none;
-    background: transparent;
-    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    color: var(--text-primary);
     cursor: pointer;
     border-radius: 50%;
     font-size: 14px;
@@ -800,7 +827,7 @@ body {
 }
 
 .week-goal-delete:hover {
-    background: rgba(196, 92, 74, 0.12);
+    background: #FFFFFF;
     color: #C45C4A;
 }
 
