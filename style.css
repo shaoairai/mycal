@@ -1777,7 +1777,7 @@ body {
     background: var(--success-hover);
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip) {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn) {
     width: 100%;
     padding: 12px;
     background: var(--primary);
@@ -1790,7 +1790,7 @@ body {
     transition: background 0.2s;
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):hover {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn):hover {
     background: var(--primary-hover);
 }
 
