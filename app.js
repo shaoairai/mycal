@@ -1172,18 +1172,21 @@ function renderItemsList() {
   sortedItemIds.forEach((itemId) => {
     const item = items[itemId];
     const itemRow = document.createElement("div");
-    itemRow.className = "item-row";
+    // 整列就是那個顏色的色塊，跟日曆格子上的樣式一致
+    // （沒存 color 的舊項目在日曆上是藍的，這裡也要跟著藍）
+    itemRow.className = `item-row item-color-${item.color || "blue"}${
+      item.completed ? " completed" : ""
+    }`;
     itemRow.draggable = true;
     itemRow.dataset.id = itemId;
-    const colorClass = item.color ? ` item-color-${item.color}` : "";
     itemRow.innerHTML = `
             <span class="item-drag-handle">⋮⋮</span>
             <input type="checkbox" class="item-checkbox" data-id="${itemId}" ${
       item.completed ? "checked" : ""
     } />
-            <span class="item-text${
-              item.completed ? " completed" : ""
-            }${colorClass}" data-color="${item.color || ""}">${item.text}</span>
+            <span class="item-text${item.completed ? " completed" : ""}">${
+      item.text
+    }</span>
             <div class="item-actions">
                 <button class="item-apply" data-id="${itemId}" data-text="${
       item.text
