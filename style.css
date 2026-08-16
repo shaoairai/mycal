@@ -1459,6 +1459,14 @@ body {
     padding: 12px 16px 16px;
 }
 
+/* 日曆整區都不給選字：長按是拿來拖曳的，跳出選取控點和放大鏡只會擋住畫面 */
+.calendar-weekdays,
+.calendar-grid {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 .calendar-weekdays {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
