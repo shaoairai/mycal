@@ -454,8 +454,11 @@ function createDragTransfer() {
   }
 }
 
-// 暫時性診斷：手機沒有 console 可看，把放開那一瞬間的狀況直接印在畫面上。
-// 查清楚手機拖曳失敗的原因後就整段移除。
+// 觸控放開後，有沒有真的搬到東西（drop 處理器成功受理就會設成 true）
+let touchDropCommitted = false;
+
+// 暫時性診斷：手機沒有 console 可看，「拖了卻沒搬動」時把狀況印在畫面上。
+// 確認手機拖曳正常後就整段移除。
 function reportTouchDrop(eventType, under, heldFrom) {
   const describe = (el) => {
     if (!el) return "null";
@@ -491,6 +494,9 @@ function initTouchDragBridge() {
   let dragging = false;
   let startX = 0;
   let startY = 0;
+  // touchcancel 帶的座標會退回起始位置，落點要用自己記的最後一個 touchmove
+  let lastX = 0;
+  let lastY = 0;
   let transfer = null;
   let ghost = null;
 
@@ -565,8 +571,8 @@ function initTouchDragBridge() {
       if (!el) return;
 
       source = el;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
+      startX = lastX = e.touches[0].clientX;
+      startY = lastY = e.touches[0].clientY;
 
       holdTimer = setTimeout(() => {
         if (!source) return;
@@ -596,6 +602,8 @@ function initTouchDragBridge() {
 
       // 拖曳中不要讓頁面跟著捲
       e.preventDefault();
+      lastX = touch.clientX;
+      lastY = touch.clientY;
       moveGhost(touch.clientX, touch.clientY);
 
       const under = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -613,12 +621,13 @@ function initTouchDragBridge() {
 
     try {
       if (dragging) {
-        const touch = e.changedTouches[0];
-        const under = document.elementFromPoint(touch.clientX, touch.clientY);
+        // 一律用自己記的最後座標：touchend 的跟它一樣，touchcancel 的則是壞的
+        const under = document.elementFromPoint(lastX, lastY);
         const held = draggedItem ? draggedItem.sourceDate : null;
-        fire(under, "drop", touch.clientX, touch.clientY);
-        fire(source, "dragend", touch.clientX, touch.clientY);
-        reportTouchDrop(e.type, under, held);
+        touchDropCommitted = false;
+        fire(under, "drop", lastX, lastY);
+        fire(source, "dragend", lastX, lastY);
+        if (!touchDropCommitted) reportTouchDrop(e.type, under, held);
       }
     } finally {
       // 中間任何一步爆掉都要收乾淨，否則分身會卡在畫面上、下一次拖曳也壞掉
@@ -1216,6 +1225,7 @@ function updateCalendarStatus() {
 
             const fromId = draggedItem.itemId;
             draggedItem = null;
+            touchDropCommitted = true;
             await reorderDayItems(dateKey, fromId, itemDiv.dataset.itemId);
           });
 
@@ -1595,6 +1605,8 @@ async function handleDayDrop(e) {
   const hasDuplicate = Object.values(targetItems).some(
     (item) => item.text === draggedItem.text
   );
+
+  touchDropCommitted = true;
 
   if (hasDuplicate) {
     const confirmMove = confirm(

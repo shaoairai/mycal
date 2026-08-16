@@ -1592,6 +1592,10 @@ body {
     background-color: var(--primary);
     color: var(--text-on-primary);
     cursor: grab;
+    /* 不讓瀏覽器把長按滑動收去做捲動／下拉更新，否則它會中途丟出 touchcancel
+       把拖曳打斷。日曆區塊本來就不捲動（外層是 100dvh + overflow:hidden），
+       所以擋掉不會有副作用 */
+    touch-action: none;
 }
 
 .calendar-day .day-item.my-item:active {
