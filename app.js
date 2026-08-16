@@ -32,6 +32,10 @@ const DEFAULT_WHITELIST = {
   "0963531832": { password: "a123321a" },
 };
 
+// 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
+// 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
+const APP_VERSION = "20260816c";
+
 // 全域變數
 let currentUser = null;
 let currentYear = new Date().getFullYear();
@@ -48,6 +52,8 @@ const loginBtn = document.getElementById("loginBtn");
 const loginError = document.getElementById("loginError");
 const logoutBtn = document.getElementById("logoutBtn");
 const currentUserDisplay = document.getElementById("currentUserDisplay");
+const appVersionLabel = document.getElementById("appVersionLabel");
+if (appVersionLabel) appVersionLabel.textContent = `版本 ${APP_VERSION}`;
 const changePasswordBtn = document.getElementById("changePasswordBtn");
 
 const monthGoalInput = document.getElementById("monthGoalInput");
