@@ -1124,7 +1124,7 @@ body {
 
 .progress-theme {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto auto auto;
     align-items: center;
     gap: 8px 10px;
     padding: 10px 12px;
@@ -1190,6 +1190,24 @@ body {
     color: var(--text-on-primary);
 }
 
+/* 起始日期：這天之前不列入分母 */
+.schedule-start {
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    background: var(--bg-muted);
+    border: 1px solid var(--border-light);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.schedule-start:focus {
+    outline: none;
+    border-color: var(--primary);
+    color: var(--text-primary);
+}
+
 @media (max-width: 600px) {
     .progress-theme {
         grid-template-columns: auto 1fr auto;
@@ -1202,6 +1220,12 @@ body {
 
     .schedule-btn {
         flex: 1;
+    }
+
+    .schedule-start {
+        grid-column: 1 / -1;
+        width: 100%;
+        text-align: center;
     }
 }
 

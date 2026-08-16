@@ -198,6 +198,9 @@ let colorThemeNames = {};
 // 各顏色的計算範圍 { blue: "weekday", ... }，未設定即 DEFAULT_SCHEDULE
 let colorSchedules = {};
 
+// 各顏色的起始日期 { blue: "2026-03-15", ... }，起始日之前的日子不列入計算
+let colorStartDates = {};
+
 // 目前隱藏的顏色（僅影響日曆顯示，存在本機）
 let hiddenColors = new Set();
 
@@ -217,6 +220,14 @@ function scheduleCoversDay(schedule, dayOfWeek) {
   if (schedule === "weekday") return !isWeekend;
   if (schedule === "weekend") return isWeekend;
   return schedule === "daily";
+}
+
+// 起始日存成 "YYYY-MM-DD"，格式不對就當作沒設定
+function getColorStartDate(starts, key) {
+  const value = starts?.[key];
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? value
+    : "";
 }
 
 // 產生所有顏色選擇器的色票（必須在下方的點擊監聽註冊之前執行）
@@ -377,6 +388,24 @@ async function saveColorSchedule(key, schedule) {
     );
   } catch (error) {
     console.error("儲存計算範圍失敗:", error);
+    alert("儲存失敗，請稍後再試");
+  }
+}
+
+async function saveColorStartDate(key, dateStr) {
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : "";
+  colorStartDates[key] = value;
+  calculateProgressRate();
+
+  if (!currentUser) return;
+
+  try {
+    await set(
+      ref(db, `users/${currentUser}/colorStartDates/${key}`),
+      value || null
+    );
+  } catch (error) {
+    console.error("儲存起始日期失敗:", error);
     alert("儲存失敗，請稍後再試");
   }
 }
@@ -3052,17 +3081,31 @@ confirmDeleteScopeBtn.addEventListener("click", async () => {
 // 一個月的達成率：每個顏色主題各自挑要算的日子（每日／平日／假日），
 // 該天只要有排上這個顏色的項目就算達成，不必勾完成。
 // 整月未出現過的主題不列入計算，免得沒在用的顏色一直拖低分母。
-function computeMonthProgress(dailyGoals, year, month, schedules) {
+// 主題可各自設起始日，起始日之前的日子不算分母（例如月中才開始的項目）。
+function computeMonthProgress(dailyGoals, year, month, schedules, startDates) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const themes = COLOR_DEFS.map(({ key, hex }) => ({
-    key,
-    hex,
-    schedule: getColorSchedule(schedules, key),
-    targetDays: 0,
-    doneDays: 0,
-    used: false,
-  }));
+  const themes = COLOR_DEFS.map(({ key, hex }) => {
+    const startDate = getColorStartDate(startDates, key);
+    return {
+      key,
+      hex,
+      schedule: getColorSchedule(schedules, key),
+      startDate,
+      // 這個月從第幾天開始算：起始日在本月就從那天起，之後的月份整月都算，
+      // 起始日還沒到的月份則一天都不算
+      firstDay: startDate
+        ? startDate > getDateKey(year, month, daysInMonth)
+          ? daysInMonth + 1
+          : startDate < getDateKey(year, month, 1)
+          ? 1
+          : Number(startDate.slice(8))
+        : 1,
+      targetDays: 0,
+      doneDays: 0,
+      used: false,
+    };
+  });
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateKey = getDateKey(year, month, day);
@@ -3074,6 +3117,7 @@ function computeMonthProgress(dailyGoals, year, month, schedules) {
 
     themes.forEach((theme) => {
       if (colorsToday.has(theme.key)) theme.used = true;
+      if (day < theme.firstDay) return;
       if (!scheduleCoversDay(theme.schedule, dayOfWeek)) return;
       theme.targetDays++;
       if (colorsToday.has(theme.key)) theme.doneDays++;
@@ -3081,7 +3125,7 @@ function computeMonthProgress(dailyGoals, year, month, schedules) {
   }
 
   const counted = themes.filter(
-    (theme) => theme.used && theme.schedule !== "off"
+    (theme) => theme.used && theme.schedule !== "off" && theme.targetDays > 0
   );
   const targetDays = counted.reduce((sum, t) => sum + t.targetDays, 0);
   const doneDays = counted.reduce((sum, t) => sum + t.doneDays, 0);
@@ -3099,7 +3143,8 @@ function calculateProgressRate() {
     dailyGoalsData,
     currentYear,
     currentMonth,
-    colorSchedules
+    colorSchedules,
+    colorStartDates
   );
   const { counted, targetDays, doneDays } = currentProgress;
   const rate = currentProgress.rate ?? 0;
@@ -3154,12 +3199,23 @@ function renderProgressThemes() {
       picker.appendChild(btn);
     });
 
+    const start = document.createElement("input");
+    start.type = "date";
+    start.className = "schedule-start";
+    start.title = "起始日期：這天之前不列入計算";
+    start.value = theme.startDate;
+    start.addEventListener("change", () =>
+      saveColorStartDate(theme.key, start.value)
+    );
+
     const stat = document.createElement("span");
     stat.className = "progress-theme-stat";
     if (!theme.used) {
       stat.textContent = "本月未使用";
-    } else if (theme.schedule === "off" || theme.targetDays === 0) {
+    } else if (theme.schedule === "off") {
       stat.textContent = "—";
+    } else if (theme.targetDays === 0) {
+      stat.textContent = "尚未開始";
     } else {
       const rate = Math.round((theme.doneDays / theme.targetDays) * 100);
       stat.textContent = `${theme.doneDays}/${theme.targetDays}　${rate}%`;
@@ -3176,7 +3232,7 @@ function renderProgressThemes() {
         : "0";
     bar.appendChild(fill);
 
-    row.append(dot, name, stat, picker, bar);
+    row.append(dot, name, stat, picker, start, bar);
     progressThemeList.appendChild(row);
   });
 }
@@ -3222,6 +3278,13 @@ function setupRealtimeListeners() {
   const colorSchedulesRef = ref(db, `users/${currentUser}/colorSchedules`);
   onValue(colorSchedulesRef, (snapshot) => {
     colorSchedules = snapshot.exists() ? snapshot.val() : {};
+    calculateProgressRate();
+  });
+
+  // 監聽各顏色的起始日期
+  const colorStartDatesRef = ref(db, `users/${currentUser}/colorStartDates`);
+  onValue(colorStartDatesRef, (snapshot) => {
+    colorStartDates = snapshot.exists() ? snapshot.val() : {};
     calculateProgressRate();
   });
 
@@ -3360,14 +3423,17 @@ function renderStatsView() {
 async function getUserMonthlyRates(phone, year) {
   let dailyGoals = {};
   let schedules = {};
+  let startDates = {};
 
   try {
-    const [dailySnap, scheduleSnap] = await Promise.all([
+    const [dailySnap, scheduleSnap, startSnap] = await Promise.all([
       get(ref(db, `users/${phone}/dailyGoals`)),
       get(ref(db, `users/${phone}/colorSchedules`)),
+      get(ref(db, `users/${phone}/colorStartDates`)),
     ]);
     if (dailySnap.exists()) dailyGoals = dailySnap.val();
     if (scheduleSnap.exists()) schedules = scheduleSnap.val();
+    if (startSnap.exists()) startDates = startSnap.val();
   } catch (error) {
     console.error("讀取達成率資料失敗:", error);
     return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, rate: null }));
@@ -3375,7 +3441,13 @@ async function getUserMonthlyRates(phone, year) {
 
   const rates = [];
   for (let month = 0; month < 12; month++) {
-    const { rate } = computeMonthProgress(dailyGoals, year, month, schedules);
+    const { rate } = computeMonthProgress(
+      dailyGoals,
+      year,
+      month,
+      schedules,
+      startDates
+    );
     rates.push({ month: month + 1, rate });
   }
 
