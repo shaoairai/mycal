@@ -2698,6 +2698,22 @@ body {
     user-select: none;
 }
 
+/* 觸控拖曳時跟著手指跑的分身：看得到它才知道長按已經成立。
+   一定要 pointer-events: none，否則 elementFromPoint 會抓到分身而不是底下的日期格 */
+.touch-drag-ghost {
+    position: fixed;
+    z-index: 3000;
+    margin: 0;
+    max-width: 60vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: var(--shadow-lg);
+}
+
 /* 手指比游標粗，勾選框與小按鈕要放大 */
 @media (hover: none) {
     .color-theme-check,

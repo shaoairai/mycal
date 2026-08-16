@@ -420,7 +420,39 @@ async function saveColorStartDay(key, day) {
 // 手機沒有 HTML5 的 drag 事件，這裡用「長按 + 滑動」合成同一組事件，
 // 讓既有的 dragstart / dragover / drop 邏輯不用改就能在觸控上運作。
 const TOUCH_HOLD_MS = 220;
-const TOUCH_SLOP_PX = 10;
+const TOUCH_SLOP_PX = 16; // 手指本來就會晃，抓太緊會一直誤判成捲動而取消
+
+// dragstart 裡會碰 e.dataTransfer，合成事件不一定帶得動它。
+// 少了它就整段拖曳中斷（畫面看起來在拖，放開卻沒反應），所以統一走這裡。
+function setDragPayload(e, text) {
+  const dt = e.dataTransfer;
+  if (!dt) return;
+  try {
+    dt.effectAllowed = "move";
+    if (text != null) dt.setData("text/plain", text);
+  } catch (error) {
+    console.warn("dataTransfer 不可用，忽略：", error);
+  }
+}
+
+// 有些瀏覽器不讓 new DataTransfer()，給一個夠用的替身
+function createDragTransfer() {
+  try {
+    return new DataTransfer();
+  } catch (error) {
+    const store = new Map();
+    return {
+      effectAllowed: "move",
+      dropEffect: "move",
+      types: [],
+      files: [],
+      setData: (type, value) => store.set(type, String(value)),
+      getData: (type) => store.get(type) ?? "",
+      clearData: () => store.clear(),
+      setDragImage: () => {},
+    };
+  }
+}
 
 function initTouchDragBridge() {
   let source = null;
@@ -430,22 +462,64 @@ function initTouchDragBridge() {
   let startX = 0;
   let startY = 0;
   let transfer = null;
+  let ghost = null;
 
   function fire(el, type, x, y) {
     if (!el) return;
-    el.dispatchEvent(
-      new DragEvent(type, {
+    let event;
+    try {
+      event = new DragEvent(type, {
         bubbles: true,
         cancelable: true,
         dataTransfer: transfer,
         clientX: x,
         clientY: y,
-      })
-    );
+      });
+    } catch (error) {
+      event = new Event(type, { bubbles: true, cancelable: true });
+      event.clientX = x;
+      event.clientY = y;
+    }
+    // DragEvent 可能忽略建構參數裡的 dataTransfer，補上才不會是 null
+    if (!event.dataTransfer && transfer) {
+      try {
+        Object.defineProperty(event, "dataTransfer", {
+          value: transfer,
+          configurable: true,
+        });
+      } catch (error) {
+        /* 補不上就算了，setDragPayload 有防呆 */
+      }
+    }
+    el.dispatchEvent(event);
+  }
+
+  // 手指底下要有東西跟著跑，不然使用者不知道長按到底成立了沒
+  function showGhost(el, x, y) {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    ghost = el.cloneNode(true);
+    ghost.className = "touch-drag-ghost";
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.font = style.font;
+    ghost.style.color = style.color;
+    ghost.style.background = style.backgroundColor;
+    ghost.style.padding = style.padding;
+    ghost.style.borderRadius = style.borderRadius;
+    document.body.appendChild(ghost);
+    moveGhost(x, y);
+  }
+
+  function moveGhost(x, y) {
+    if (!ghost) return;
+    ghost.style.left = `${x}px`;
+    ghost.style.top = `${y}px`;
   }
 
   function reset() {
     clearTimeout(holdTimer);
+    ghost?.remove();
+    ghost = null;
     source = null;
     lastTarget = null;
     dragging = false;
@@ -467,8 +541,9 @@ function initTouchDragBridge() {
       holdTimer = setTimeout(() => {
         if (!source) return;
         dragging = true;
-        transfer = new DataTransfer();
+        transfer = createDragTransfer();
         fire(source, "dragstart", startX, startY);
+        showGhost(source, startX, startY);
         navigator.vibrate?.(15);
       }, TOUCH_HOLD_MS);
     },
@@ -491,6 +566,7 @@ function initTouchDragBridge() {
 
       // 拖曳中不要讓頁面跟著捲
       e.preventDefault();
+      moveGhost(touch.clientX, touch.clientY);
 
       const under = document.elementFromPoint(touch.clientX, touch.clientY);
       if (under !== lastTarget) {
@@ -1235,7 +1311,7 @@ function renderItemsList() {
     itemRow.addEventListener("dragstart", (e) => {
       draggedModalItem = itemRow;
       itemRow.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
+      setDragPayload(e);
     });
 
     itemRow.addEventListener("dragend", () => {
@@ -1442,8 +1518,7 @@ function handleCalendarItemDragStart(e) {
   itemDiv.classList.add("dragging");
 
   // 設置拖曳效果
-  e.dataTransfer.effectAllowed = "move";
-  e.dataTransfer.setData("text/plain", itemDiv.dataset.itemText);
+  setDragPayload(e, itemDiv.dataset.itemText);
 }
 
 // 日曆上的項目拖曳結束
@@ -1978,7 +2053,7 @@ function renderYearGoalsList() {
     goalItem.addEventListener("dragstart", (e) => {
       draggedYearGoal = goalItem;
       goalItem.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
+      setDragPayload(e);
     });
 
     goalItem.addEventListener("dragend", () => {
@@ -2287,7 +2362,7 @@ function renderMonthGoalsList() {
     row.addEventListener("dragstart", (e) => {
       draggedMonthGoal = row;
       row.classList.add("dragging");
-      e.dataTransfer.effectAllowed = "move";
+      setDragPayload(e);
     });
 
     row.addEventListener("dragend", () => {
@@ -2715,8 +2790,7 @@ function createWeekGoalRow(week, itemId, item, color) {
   row.addEventListener("dragstart", (e) => {
     draggedWeekGoal = { weekKey: week.key, itemId };
     row.classList.add("dragging");
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", item.text);
+    setDragPayload(e, item.text);
   });
 
   row.addEventListener("dragend", () => {
