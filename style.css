@@ -1140,7 +1140,8 @@ body {
 .progress-theme-head {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px 8px;
 }
 
 .progress-theme-head .color-theme-dot {
@@ -1150,13 +1151,21 @@ body {
 
 /* 名稱多長都完整顯示，寬度不夠就換行 */
 .progress-theme-name {
-    flex: 1;
+    flex: 1 1 45%;
     min-width: 0;
     font-size: 14px;
     font-weight: 500;
     line-height: 1.4;
     color: var(--text-primary);
     overflow-wrap: anywhere;
+}
+
+.progress-theme-meta {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: auto;
+    gap: 8px;
 }
 
 .progress-theme-stat {
@@ -1167,21 +1176,15 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.progress-theme-controls {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 8px;
-}
-
 .progress-theme-bar {
     height: 6px;
     margin-bottom: 0;
 }
 
+/* 起始日跟在名稱右邊，範圍鈕就能獨占一整行 */
 .schedule-picker {
     display: flex;
-    flex: 1 1 200px;
+    width: 100%;
     gap: 4px;
 }
 
@@ -1220,7 +1223,6 @@ body {
 .schedule-start {
     display: flex;
     flex: 0 0 auto;
-    margin-left: auto;
     align-items: center;
     gap: 3px;
     padding: 4px 10px;
@@ -1258,7 +1260,7 @@ body {
     border-bottom-color: var(--primary);
 }
 
-/* 窄螢幕：範圍鈕壓縮寬度，讓四顆鈕加起始日仍能共用一行；真的塞不下才換行 */
+/* 窄螢幕：範圍鈕獨占一行平分寬度，點擊區域才夠大 */
 @media (max-width: 600px) {
     .progress-summary {
         gap: 12px;
@@ -1273,18 +1275,12 @@ body {
         gap: 7px;
     }
 
-    .progress-theme-controls {
-        gap: 6px;
-    }
-
     .schedule-picker {
-        flex: 1 1 auto;
-        min-width: 0;
-        gap: 3px;
+        gap: 4px;
     }
 
     .schedule-btn {
-        padding: 6px 2px;
+        padding: 7px 4px;
         font-size: 12px;
     }
 

@@ -3232,16 +3232,17 @@ function renderProgressThemes() {
         : "0";
     bar.appendChild(fill);
 
-    // 三層：標題列（點＋完整名稱＋數字）／設定列（範圍＋起始日）／進度條
+    // 三層：標題列（點＋完整名稱＋起始日＋數字）／範圍鈕／進度條
+    // 起始日和數字包成一組，換行時整組一起靠右，不會單獨掉一行
+    const meta = document.createElement("div");
+    meta.className = "progress-theme-meta";
+    meta.append(start, stat);
+
     const head = document.createElement("div");
     head.className = "progress-theme-head";
-    head.append(dot, name, stat);
+    head.append(dot, name, meta);
 
-    const controls = document.createElement("div");
-    controls.className = "progress-theme-controls";
-    controls.append(picker, start);
-
-    row.append(head, controls, bar);
+    row.append(head, picker, bar);
     progressThemeList.appendChild(row);
   });
 }
