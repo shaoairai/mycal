@@ -1122,11 +1122,11 @@ body {
     gap: 8px;
 }
 
+/* 一列拆成三層：標題／設定／進度條，名稱才有整行寬度可以完整顯示 */
 .progress-theme {
-    display: grid;
-    grid-template-columns: auto 1fr auto auto auto;
-    align-items: center;
-    gap: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     padding: 10px 12px;
     border: 1px solid var(--border-light);
     border-radius: 10px;
@@ -1137,35 +1137,61 @@ body {
     opacity: 0.5;
 }
 
+.progress-theme-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.progress-theme-head .color-theme-dot {
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* 名稱多長都完整顯示，寬度不夠就換行 */
 .progress-theme-name {
+    flex: 1;
+    min-width: 0;
     font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
     color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
 }
 
 .progress-theme-stat {
+    flex-shrink: 0;
     font-size: 12px;
     color: var(--text-secondary);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.progress-theme-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
 }
 
 .progress-theme-bar {
-    grid-column: 1 / -1;
     height: 6px;
     margin-bottom: 0;
 }
 
 .schedule-picker {
     display: flex;
+    flex: 1 1 200px;
     gap: 4px;
 }
 
 /* 沒選到的一律灰底，選到的才實心上色 */
 .schedule-btn {
+    flex: 1;
+    min-width: 0;
     padding: 5px 10px;
     font-size: 12px;
+    white-space: nowrap;
     border: none;
     background: var(--bg-muted);
     color: var(--text-secondary);
@@ -1190,42 +1216,88 @@ body {
     color: var(--text-on-primary);
 }
 
-/* 起始日期：這天之前不列入分母 */
+/* 本月起始日：這天之前不列入分母 */
 .schedule-start {
-    padding: 4px 8px;
+    display: flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 10px;
     font-size: 12px;
-    font-family: inherit;
     color: var(--text-secondary);
     background: var(--bg-muted);
-    border: 1px solid var(--border-light);
     border-radius: 999px;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.schedule-start:focus {
-    outline: none;
-    border-color: var(--primary);
+.schedule-start input {
+    width: 32px;
+    padding: 0;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
+    text-align: center;
     color: var(--text-primary);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    -moz-appearance: textfield;
 }
 
+/* 藏掉上下箭頭，數字才有完整寬度 */
+.schedule-start input::-webkit-outer-spin-button,
+.schedule-start input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.schedule-start input:focus {
+    outline: none;
+    border-bottom-color: var(--primary);
+}
+
+/* 窄螢幕：範圍鈕壓縮寬度，讓四顆鈕加起始日仍能共用一行；真的塞不下才換行 */
 @media (max-width: 600px) {
+    .progress-summary {
+        gap: 12px;
+    }
+
+    .progress-rate-big {
+        font-size: 30px;
+    }
+
     .progress-theme {
-        grid-template-columns: auto 1fr auto;
+        padding: 10px;
+        gap: 7px;
+    }
+
+    .progress-theme-controls {
+        gap: 6px;
     }
 
     .schedule-picker {
-        grid-column: 1 / -1;
-        justify-content: space-between;
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 3px;
     }
 
     .schedule-btn {
-        flex: 1;
+        padding: 6px 2px;
+        font-size: 12px;
     }
 
     .schedule-start {
-        grid-column: 1 / -1;
-        width: 100%;
-        text-align: center;
+        padding: 4px 8px;
+    }
+
+    .schedule-start input {
+        width: 28px;
+    }
+
+    .progress-theme-stat {
+        font-size: 11px;
     }
 }
 
@@ -2773,18 +2845,39 @@ body {
     .month-nav {
         flex: 1;
         min-width: 0;
+        gap: 2px;
     }
 
+    /* 月份標題排到最前面且不縮不切，空間不夠時讓按鈕先讓位 */
     .month-nav h2 {
-        font-size: 1rem;
-        margin-left: 4px;
+        order: -1;
+        flex: 0 0 auto;
+        margin-left: 2px;
+        margin-right: auto;
+        font-size: 1.05rem;
+        overflow: visible;
+    }
+
+    .month-nav .nav-arrow {
+        flex-shrink: 0;
+    }
+
+    .month-nav .today-btn {
+        order: 3;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
     .today-btn {
-        padding: 7px 12px;
-        font-size: 13px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .nav-arrow {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
     }
 
     .nav-btn {

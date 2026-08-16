@@ -198,8 +198,9 @@ let colorThemeNames = {};
 // 各顏色的計算範圍 { blue: "weekday", ... }，未設定即 DEFAULT_SCHEDULE
 let colorSchedules = {};
 
-// 各顏色的起始日期 { blue: "2026-03-15", ... }，起始日之前的日子不列入計算
-let colorStartDates = {};
+// 各月各顏色的起始日 { "2026-08": { blue: 20 }, ... }，該月起始日之前不列入計算
+// 每個月獨立設定，未設定即從 1 號開始算
+let colorStartDays = {};
 
 // 目前隱藏的顏色（僅影響日曆顯示，存在本機）
 let hiddenColors = new Set();
@@ -222,12 +223,11 @@ function scheduleCoversDay(schedule, dayOfWeek) {
   return schedule === "daily";
 }
 
-// 起始日存成 "YYYY-MM-DD"，格式不對就當作沒設定
-function getColorStartDate(starts, key) {
-  const value = starts?.[key];
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? value
-    : "";
+// 該月該主題從幾號開始算，超出範圍或沒設定都當作 1 號
+function getColorStartDay(startDays, monthKey, key, daysInMonth) {
+  const value = Number(startDays?.[monthKey]?.[key]);
+  if (!Number.isInteger(value) || value < 1) return 1;
+  return Math.min(value, daysInMonth);
 }
 
 // 產生所有顏色選擇器的色票（必須在下方的點擊監聽註冊之前執行）
@@ -392,20 +392,25 @@ async function saveColorSchedule(key, schedule) {
   }
 }
 
-async function saveColorStartDate(key, dateStr) {
-  const value = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : "";
-  colorStartDates[key] = value;
+// 起始日只對「目前正在看的這個月」生效，其他月份各自獨立
+async function saveColorStartDay(key, day) {
+  const monthKey = getMonthKey(currentYear, currentMonth);
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const value = Math.min(Math.max(Math.round(Number(day)) || 1, 1), daysInMonth);
+
+  if (!colorStartDays[monthKey]) colorStartDays[monthKey] = {};
+  colorStartDays[monthKey][key] = value;
   calculateProgressRate();
 
   if (!currentUser) return;
 
   try {
     await set(
-      ref(db, `users/${currentUser}/colorStartDates/${key}`),
-      value || null
+      ref(db, `users/${currentUser}/colorStartDays/${monthKey}/${key}`),
+      value === 1 ? null : value
     );
   } catch (error) {
-    console.error("儲存起始日期失敗:", error);
+    console.error("儲存起始日失敗:", error);
     alert("儲存失敗，請稍後再試");
   }
 }
@@ -3081,31 +3086,22 @@ confirmDeleteScopeBtn.addEventListener("click", async () => {
 // 一個月的達成率：每個顏色主題各自挑要算的日子（每日／平日／假日），
 // 該天只要有排上這個顏色的項目就算達成，不必勾完成。
 // 整月未出現過的主題不列入計算，免得沒在用的顏色一直拖低分母。
-// 主題可各自設起始日，起始日之前的日子不算分母（例如月中才開始的項目）。
-function computeMonthProgress(dailyGoals, year, month, schedules, startDates) {
+// 主題可各自設當月的起始日（預設 1 號），起始日之前的日子不算分母，
+// 這樣月中才開始的項目不會被前面那幾天拖低。每個月的起始日各自獨立。
+function computeMonthProgress(dailyGoals, year, month, schedules, startDays) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthKey = getMonthKey(year, month);
 
-  const themes = COLOR_DEFS.map(({ key, hex }) => {
-    const startDate = getColorStartDate(startDates, key);
-    return {
-      key,
-      hex,
-      schedule: getColorSchedule(schedules, key),
-      startDate,
-      // 這個月從第幾天開始算：起始日在本月就從那天起，之後的月份整月都算，
-      // 起始日還沒到的月份則一天都不算
-      firstDay: startDate
-        ? startDate > getDateKey(year, month, daysInMonth)
-          ? daysInMonth + 1
-          : startDate < getDateKey(year, month, 1)
-          ? 1
-          : Number(startDate.slice(8))
-        : 1,
-      targetDays: 0,
-      doneDays: 0,
-      used: false,
-    };
-  });
+  const themes = COLOR_DEFS.map(({ key, hex }) => ({
+    key,
+    hex,
+    schedule: getColorSchedule(schedules, key),
+    firstDay: getColorStartDay(startDays, monthKey, key, daysInMonth),
+    daysInMonth,
+    targetDays: 0,
+    doneDays: 0,
+    used: false,
+  }));
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateKey = getDateKey(year, month, day);
@@ -3144,7 +3140,7 @@ function calculateProgressRate() {
     currentYear,
     currentMonth,
     colorSchedules,
-    colorStartDates
+    colorStartDays
   );
   const { counted, targetDays, doneDays } = currentProgress;
   const rate = currentProgress.rate ?? 0;
@@ -3199,23 +3195,27 @@ function renderProgressThemes() {
       picker.appendChild(btn);
     });
 
-    const start = document.createElement("input");
-    start.type = "date";
+    const start = document.createElement("label");
     start.className = "schedule-start";
-    start.title = "起始日期：這天之前不列入計算";
-    start.value = theme.startDate;
-    start.addEventListener("change", () =>
-      saveColorStartDate(theme.key, start.value)
+    start.title = "本月從幾號開始算，之前的日子不列入計算";
+    const startInput = document.createElement("input");
+    startInput.type = "number";
+    startInput.inputMode = "numeric";
+    startInput.min = "1";
+    startInput.max = String(theme.daysInMonth);
+    startInput.step = "1";
+    startInput.value = String(theme.firstDay);
+    startInput.addEventListener("change", () =>
+      saveColorStartDay(theme.key, startInput.value)
     );
+    start.append(startInput, document.createTextNode("號起"));
 
     const stat = document.createElement("span");
     stat.className = "progress-theme-stat";
     if (!theme.used) {
       stat.textContent = "本月未使用";
-    } else if (theme.schedule === "off") {
+    } else if (theme.schedule === "off" || theme.targetDays === 0) {
       stat.textContent = "—";
-    } else if (theme.targetDays === 0) {
-      stat.textContent = "尚未開始";
     } else {
       const rate = Math.round((theme.doneDays / theme.targetDays) * 100);
       stat.textContent = `${theme.doneDays}/${theme.targetDays}　${rate}%`;
@@ -3232,7 +3232,16 @@ function renderProgressThemes() {
         : "0";
     bar.appendChild(fill);
 
-    row.append(dot, name, stat, picker, start, bar);
+    // 三層：標題列（點＋完整名稱＋數字）／設定列（範圍＋起始日）／進度條
+    const head = document.createElement("div");
+    head.className = "progress-theme-head";
+    head.append(dot, name, stat);
+
+    const controls = document.createElement("div");
+    controls.className = "progress-theme-controls";
+    controls.append(picker, start);
+
+    row.append(head, controls, bar);
     progressThemeList.appendChild(row);
   });
 }
@@ -3281,10 +3290,10 @@ function setupRealtimeListeners() {
     calculateProgressRate();
   });
 
-  // 監聽各顏色的起始日期
-  const colorStartDatesRef = ref(db, `users/${currentUser}/colorStartDates`);
-  onValue(colorStartDatesRef, (snapshot) => {
-    colorStartDates = snapshot.exists() ? snapshot.val() : {};
+  // 監聽各月各顏色的起始日
+  const colorStartDaysRef = ref(db, `users/${currentUser}/colorStartDays`);
+  onValue(colorStartDaysRef, (snapshot) => {
+    colorStartDays = snapshot.exists() ? snapshot.val() : {};
     calculateProgressRate();
   });
 
@@ -3423,17 +3432,17 @@ function renderStatsView() {
 async function getUserMonthlyRates(phone, year) {
   let dailyGoals = {};
   let schedules = {};
-  let startDates = {};
+  let startDays = {};
 
   try {
     const [dailySnap, scheduleSnap, startSnap] = await Promise.all([
       get(ref(db, `users/${phone}/dailyGoals`)),
       get(ref(db, `users/${phone}/colorSchedules`)),
-      get(ref(db, `users/${phone}/colorStartDates`)),
+      get(ref(db, `users/${phone}/colorStartDays`)),
     ]);
     if (dailySnap.exists()) dailyGoals = dailySnap.val();
     if (scheduleSnap.exists()) schedules = scheduleSnap.val();
-    if (startSnap.exists()) startDates = startSnap.val();
+    if (startSnap.exists()) startDays = startSnap.val();
   } catch (error) {
     console.error("讀取達成率資料失敗:", error);
     return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, rate: null }));
@@ -3446,7 +3455,7 @@ async function getUserMonthlyRates(phone, year) {
       year,
       month,
       schedules,
-      startDates
+      startDays
     );
     rates.push({ month: month + 1, rate });
   }
