@@ -454,6 +454,36 @@ function createDragTransfer() {
   }
 }
 
+// 暫時性診斷：手機沒有 console 可看，把放開那一瞬間的狀況直接印在畫面上。
+// 查清楚手機拖曳失敗的原因後就整段移除。
+function reportTouchDrop(eventType, under, heldFrom) {
+  const describe = (el) => {
+    if (!el) return "null";
+    const cls = typeof el.className === "string" ? el.className.trim() : "";
+    return el.tagName.toLowerCase() + (cls ? "." + cls.split(/\s+/).join(".") : "");
+  };
+  const day = under?.closest?.(".calendar-day");
+  const lines = [
+    `事件 ${eventType}`,
+    `落點 ${describe(under)}`,
+    `日期格 ${day ? day.dataset.date || "(空白格)" : "找不到"}`,
+    `拖的是 ${heldFrom || "(沒有)"}`,
+    `帳號 ${currentUser ? "有" : "無"}`,
+  ];
+
+  let toast = document.getElementById("dragDebugToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "dragDebugToast";
+    toast.className = "drag-debug-toast";
+    toast.addEventListener("click", () => toast.remove());
+    document.body.appendChild(toast);
+  }
+  toast.textContent = lines.join("\n");
+  clearTimeout(toast.dataset.timer);
+  toast.dataset.timer = setTimeout(() => toast.remove(), 15000);
+}
+
 function initTouchDragBridge() {
   let source = null;
   let lastTarget = null;
@@ -581,14 +611,19 @@ function initTouchDragBridge() {
   function finish(e) {
     if (!source) return;
 
-    if (dragging) {
-      const touch = e.changedTouches[0];
-      const under = document.elementFromPoint(touch.clientX, touch.clientY);
-      fire(under, "drop", touch.clientX, touch.clientY);
-      fire(source, "dragend", touch.clientX, touch.clientY);
+    try {
+      if (dragging) {
+        const touch = e.changedTouches[0];
+        const under = document.elementFromPoint(touch.clientX, touch.clientY);
+        const held = draggedItem ? draggedItem.sourceDate : null;
+        fire(under, "drop", touch.clientX, touch.clientY);
+        fire(source, "dragend", touch.clientX, touch.clientY);
+        reportTouchDrop(e.type, under, held);
+      }
+    } finally {
+      // 中間任何一步爆掉都要收乾淨，否則分身會卡在畫面上、下一次拖曳也壞掉
+      reset();
     }
-
-    reset();
   }
 
   document.addEventListener("touchend", finish);

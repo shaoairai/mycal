@@ -2698,6 +2698,25 @@ body {
     user-select: none;
 }
 
+/* 暫時性的拖曳診斷框，查完手機拖曳問題就移除 */
+.drag-debug-toast {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    z-index: 4000;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(20, 20, 20, 0.92);
+    color: #fff;
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    box-shadow: var(--shadow-lg);
+}
+
 /* 觸控拖曳時跟著手指跑的分身：看得到它才知道長按已經成立。
    一定要 pointer-events: none，否則 elementFromPoint 會抓到分身而不是底下的日期格 */
 .touch-drag-ghost {
