@@ -666,7 +666,7 @@ body {
 .week-card-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     margin-bottom: 8px;
     padding: 0 2px;
 }
@@ -692,7 +692,8 @@ body {
     color: var(--text-secondary);
 }
 
-.week-add-btn {
+.week-add-btn,
+.week-copy-btn {
     width: 24px;
     height: 24px;
     border: none;
@@ -708,13 +709,21 @@ body {
 }
 
 .week-card:hover .week-add-btn,
-.week-card.current .week-add-btn {
+.week-card:hover .week-copy-btn,
+.week-card.current .week-add-btn,
+.week-card.current .week-copy-btn {
     opacity: 1;
 }
 
-.week-add-btn:hover {
+.week-add-btn:hover,
+.week-copy-btn:hover {
     background: var(--primary);
     color: var(--text-on-primary);
+}
+
+/* 📋 的字面比＋小一點，補回來才不會看起來一大一小 */
+.week-copy-btn {
+    font-size: 12px;
 }
 
 .week-card-list {
@@ -1506,6 +1515,13 @@ body {
     height: 10px;
     flex: 0 0 auto;
     border-radius: 3px;
+    border: 2px solid transparent;
+    box-sizing: border-box;
+}
+
+/* 隱藏中的主題仍留在圖例上，只是變成空心加淡字 */
+.calendar-legend-item.off {
+    opacity: 0.5;
 }
 
 /* 日曆整區都不給選字：長按是拿來拖曳的，跳出選取控點和放大鏡只會擋住畫面 */
@@ -1976,7 +1992,7 @@ body {
     background: var(--success-hover);
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn):not(.schedule-start-step) {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-copy):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn):not(.schedule-start-step) {
     width: 100%;
     padding: 12px;
     background: var(--primary);
@@ -1989,7 +2005,7 @@ body {
     transition: background 0.2s;
 }
 
-.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn):not(.schedule-start-step):hover {
+.modal-body button:not(.btn-secondary):not(.item-delete):not(.item-toggle):not(.item-apply):not(.item-copy):not(.item-edit):not(.apply-preset):not(.weekday-chip):not(.schedule-btn):not(.schedule-start-step):hover {
     background: var(--primary-hover);
 }
 
@@ -2119,6 +2135,7 @@ body {
 }
 
 .item-apply,
+.item-copy,
 .item-edit,
 .item-delete {
     width: 28px;
@@ -2138,6 +2155,7 @@ body {
 }
 
 .item-apply:hover,
+.item-copy:hover,
 .item-edit:hover,
 .item-delete:hover {
     background: #FFFFFF;
@@ -2755,6 +2773,7 @@ body {
 /* 沒有滑鼠就沒有 hover，所有靠 hover 浮現的控制項要永遠看得見 */
 @media (hover: none) {
     .week-add-btn,
+    .week-copy-btn,
     .week-goal-delete,
     .week-goal-handle,
     .goal-item-drag-handle,
@@ -2769,6 +2788,24 @@ body {
     .item-drag-handle {
         opacity: 0.55;
     }
+}
+
+/* 複製到隔天／下週的結果在別的畫面上，用這個短訊息回報 */
+.app-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 4000;
+    max-width: calc(100vw - 32px);
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(20, 20, 20, 0.9);
+    color: #FFFFFF;
+    font-size: 13px;
+    white-space: nowrap;
+    box-shadow: var(--shadow-lg);
+    pointer-events: none;
 }
 
 /* 長按拖曳時不要跳出系統的選字／放大鏡 */
@@ -2820,13 +2857,19 @@ body {
     .week-goal-delete,
     .year-goal-item .year-goal-delete,
     .goal-item-row .goal-item-delete,
-    .week-add-btn {
+    .week-add-btn,
+    .week-copy-btn {
         width: 30px;
         height: 30px;
         font-size: 17px;
     }
 
+    .week-copy-btn {
+        font-size: 14px;
+    }
+
     .item-apply,
+    .item-copy,
     .item-edit,
     .item-delete {
         width: 34px;
@@ -3003,11 +3046,8 @@ body {
         padding: 8px;
     }
 
-    /* 窄螢幕塞不下八個就橫向捲，換行會吃掉月曆的高度 */
     .calendar-legend {
-        flex-wrap: nowrap;
-        gap: 10px;
-        overflow-x: auto;
+        gap: 3px 10px;
         padding-bottom: 6px;
     }
 

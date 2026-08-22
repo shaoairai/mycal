@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816i";
+const APP_VERSION = "20260816j";
 
 // 全域變數
 let currentUser = null;
@@ -341,27 +341,30 @@ function renderColorThemes() {
   renderCalendarLegend();
 }
 
-// 月曆上方的圖例：只列出目前沒被隱藏的顏色，純顯示不能點，
+// 月曆上方的圖例：八個主題都列出來，隱藏中的畫成空心，純顯示不能點，
 // 改名稱和顯示／隱藏都留在側邊欄，免得月曆上多出一排可誤觸的東西
 function renderCalendarLegend() {
   calendarLegend.innerHTML = "";
 
-  COLOR_DEFS.filter(({ key }) => !hiddenColors.has(key)).forEach(
-    ({ key, hex }) => {
-      const chip = document.createElement("span");
-      chip.className = "calendar-legend-item";
+  COLOR_DEFS.forEach(({ key, hex }) => {
+    const hidden = hiddenColors.has(key);
 
-      const dot = document.createElement("span");
-      dot.className = "calendar-legend-dot";
-      dot.style.background = hex;
+    const chip = document.createElement("span");
+    chip.className = `calendar-legend-item${hidden ? " off" : ""}`;
+    chip.title = hidden ? "目前隱藏中" : "";
 
-      const name = document.createElement("span");
-      name.textContent = getColorLabel(key);
+    const dot = document.createElement("span");
+    dot.className = "calendar-legend-dot";
+    // 空心＝隱藏中：只留外框，顏色還是看得出來是哪個主題
+    dot.style.background = hidden ? "transparent" : hex;
+    dot.style.borderColor = hex;
 
-      chip.append(dot, name);
-      calendarLegend.appendChild(chip);
-    }
-  );
+    const name = document.createElement("span");
+    name.textContent = getColorLabel(key);
+
+    chip.append(dot, name);
+    calendarLegend.appendChild(chip);
+  });
 }
 
 // 就地編輯主題名稱
@@ -1344,10 +1347,8 @@ function initCalendarSwipe() {
     (e) => {
       // 手指按在項目上就是想搬它。長按沒撐滿 220 毫秒的話拖曳會中止，
       // 這時若還當成滑動，使用者會看到月份被翻掉而不是項目被搬走。
-      // 圖例那排自己會橫向捲，也不該順便翻月。
       tracking =
-        e.touches.length === 1 &&
-        !e.target.closest?.('[draggable="true"], .calendar-legend');
+        e.touches.length === 1 && !e.target.closest?.('[draggable="true"]');
       if (!tracking) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -1466,6 +1467,7 @@ function renderItemsList() {
                 <button class="item-apply" data-id="${itemId}" data-text="${
       item.text
     }" data-color="${item.color || ""}" title="套用到多天">📅</button>
+                <button class="item-copy" data-id="${itemId}" title="複製到隔天">📋</button>
                 <button class="item-edit" data-id="${itemId}" data-text="${
       item.text
     }" data-color="${item.color || ""}" title="編輯">✎</button>
@@ -1529,6 +1531,13 @@ function renderItemsList() {
     });
   });
 
+  // 綁定複製到隔天事件
+  itemsList.querySelectorAll(".item-copy").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      copyItemToNextDay(e.target.dataset.id);
+    });
+  });
+
   // 綁定編輯事件
   itemsList.querySelectorAll(".item-edit").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -1546,6 +1555,64 @@ function renderItemsList() {
       deleteItem(itemId);
     });
   });
+}
+
+// 複製的結果發生在別天／別週，畫面上看不到，用一個短訊息回報
+let toastTimer = null;
+
+function showToast(text) {
+  let toast = document.getElementById("appToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.remove(), 2000);
+}
+
+// 把某一天的 dateKey 往後推 n 天
+function shiftDateKey(dateKey, days) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day + days);
+  return getDateKey(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// 複製一個項目到隔天（保留顏色，完成狀態重來）
+async function copyItemToNextDay(itemId) {
+  if (!selectedDate || !currentUser) return;
+
+  const item = dailyGoalsData[selectedDate]?.items?.[itemId];
+  if (!item) return;
+
+  const targetDate = shiftDateKey(selectedDate, 1);
+  const targetItems = dailyGoalsData[targetDate]?.items || {};
+
+  if (Object.values(targetItems).some((it) => it.text === item.text)) {
+    alert(`「${item.text}」在 ${formatDateDisplay(targetDate)} 已經有了`);
+    return;
+  }
+
+  const maxOrder = Object.values(targetItems).reduce(
+    (max, it) => Math.max(max, it.order ?? 0),
+    -1
+  );
+
+  const newItem = { text: item.text, completed: false, order: maxOrder + 1 };
+  if (item.color) newItem.color = item.color;
+
+  try {
+    await set(
+      ref(db, `users/${currentUser}/dailyGoals/${targetDate}/items/${Date.now()}`),
+      newItem
+    );
+    showToast(`已複製到 ${formatDateDisplay(targetDate)}`);
+  } catch (error) {
+    console.error("複製到隔天失敗:", error);
+    alert("複製失敗，請稍後再試");
+  }
 }
 
 // 新增項目
@@ -2855,13 +2922,19 @@ function renderWeekGoals() {
     range.className = "week-card-range";
     range.textContent = formatWeekRange(week.start, week.end);
 
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "week-copy-btn";
+    copyBtn.textContent = "📋";
+    copyBtn.title = "把這週的目標整批複製到下週";
+    copyBtn.addEventListener("click", () => copyWeekGoalsToNextWeek(week));
+
     const addBtn = document.createElement("button");
     addBtn.className = "week-add-btn";
     addBtn.textContent = "＋";
     addBtn.title = "新增週目標";
     addBtn.addEventListener("click", () => openWeekGoalModal(week));
 
-    header.append(badge, range, addBtn);
+    header.append(badge, range, copyBtn, addBtn);
     card.appendChild(header);
 
     const list = document.createElement("div");
@@ -3043,6 +3116,61 @@ async function moveWeekGoal(fromWeekKey, itemId, toWeekKey) {
   } catch (error) {
     console.error("移動週目標失敗:", error);
     alert("移動失敗，請稍後再試");
+  }
+}
+
+// 整批複製到下週：每週重打一次同樣的目標太累。
+// 已經有同名目標的就跳過，重複按也不會長出兩份。
+async function copyWeekGoalsToNextWeek(week) {
+  if (!currentUser) return;
+
+  const items = weeklyGoalsData[week.key]?.items || {};
+  const sortedIds = getWeekGoalsSorted(items);
+  if (sortedIds.length === 0) {
+    showToast("這週還沒有目標");
+    return;
+  }
+
+  const nextWeekKey = shiftDateKey(week.key, 7);
+  const targetItems = weeklyGoalsData[nextWeekKey]?.items || {};
+  const existingTexts = new Set(
+    Object.values(targetItems).map((item) => item.text)
+  );
+
+  let order = Object.values(targetItems).reduce(
+    (max, item) => Math.max(max, item.order ?? 0),
+    -1
+  );
+
+  const updates = {};
+  let copied = 0;
+
+  sortedIds.forEach((itemId) => {
+    const item = items[itemId];
+    if (existingTexts.has(item.text)) return;
+
+    order += 1;
+    copied += 1;
+    // Date.now() 在同一毫秒內會撞號，補上序號才不會互相蓋掉
+    const newId = `${Date.now()}${order}`;
+    updates[`users/${currentUser}/weeklyGoals/${nextWeekKey}/items/${newId}`] = {
+      ...item,
+      completed: false,
+      order,
+    };
+  });
+
+  if (copied === 0) {
+    showToast("下週已經有這些目標了");
+    return;
+  }
+
+  try {
+    await update(ref(db), updates);
+    showToast(`已複製 ${copied} 項到下週`);
+  } catch (error) {
+    console.error("複製到下週失敗:", error);
+    alert("複製失敗，請稍後再試");
   }
 }
 
