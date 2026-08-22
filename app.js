@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816j";
+const APP_VERSION = "20260816k";
 
 // 全域變數
 let currentUser = null;
@@ -3017,13 +3017,19 @@ function createWeekGoalRow(week, itemId, item, color) {
   text.title = "點擊編輯";
   text.addEventListener("click", () => openWeekGoalModal(week, itemId, item));
 
+  const copy = document.createElement("button");
+  copy.className = "week-goal-copy";
+  copy.textContent = "📋";
+  copy.title = "複製這條到下週";
+  copy.addEventListener("click", () => copyWeekGoalToNextWeek(week, item));
+
   const del = document.createElement("button");
   del.className = "week-goal-delete";
   del.textContent = "×";
   del.title = "刪除";
   del.addEventListener("click", () => deleteWeekGoalItem(week.key, itemId));
 
-  row.append(handle, checkbox, text, del);
+  row.append(handle, checkbox, text, copy, del);
 
   // 拖曳排序
   row.addEventListener("dragstart", (e) => {
@@ -3116,6 +3122,39 @@ async function moveWeekGoal(fromWeekKey, itemId, toWeekKey) {
   } catch (error) {
     console.error("移動週目標失敗:", error);
     alert("移動失敗，請稍後再試");
+  }
+}
+
+// 單條複製到下週。跟整批那顆一樣，下週已經有同名的就不再加。
+async function copyWeekGoalToNextWeek(week, item) {
+  if (!currentUser) return;
+
+  const nextWeekKey = shiftDateKey(week.key, 7);
+  const targetItems = weeklyGoalsData[nextWeekKey]?.items || {};
+
+  if (Object.values(targetItems).some((it) => it.text === item.text)) {
+    showToast(`下週已經有「${item.text}」了`);
+    return;
+  }
+
+  const order =
+    Object.values(targetItems).reduce(
+      (max, it) => Math.max(max, it.order ?? 0),
+      -1
+    ) + 1;
+
+  try {
+    await set(
+      ref(
+        db,
+        `users/${currentUser}/weeklyGoals/${nextWeekKey}/items/${Date.now()}`
+      ),
+      { ...item, completed: false, order }
+    );
+    showToast(`已複製「${item.text}」到下週`);
+  } catch (error) {
+    console.error("複製週目標失敗:", error);
+    alert("複製失敗，請稍後再試");
   }
 }
 

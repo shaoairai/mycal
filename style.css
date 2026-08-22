@@ -704,7 +704,8 @@ body {
     line-height: 1;
     color: var(--text-secondary);
     flex-shrink: 0;
-    opacity: 0;
+    /* 一律看得見：要先把游標移到卡片上才浮現的話，等於每次都要多一步 */
+    opacity: 0.6;
     transition: all 0.2s;
 }
 
@@ -770,13 +771,13 @@ body {
 .week-goal-handle {
     font-size: 11px;
     color: var(--text-on-primary);
-    opacity: 0;
+    opacity: 0.55;
     user-select: none;
     transition: opacity 0.2s;
 }
 
 .week-goal-row:hover .week-goal-handle {
-    opacity: 0.7;
+    opacity: 0.85;
 }
 
 .week-goal-checkbox {
@@ -826,6 +827,7 @@ body {
     text-decoration: line-through;
 }
 
+.week-goal-copy,
 .week-goal-delete {
     width: 20px;
     height: 20px;
@@ -838,12 +840,22 @@ body {
     font-size: 14px;
     line-height: 1;
     flex-shrink: 0;
-    opacity: 0;
+    opacity: 0.85;
     transition: all 0.2s;
 }
 
+.week-goal-copy {
+    font-size: 10px;
+}
+
+.week-goal-row:hover .week-goal-copy,
 .week-goal-row:hover .week-goal-delete {
     opacity: 1;
+}
+
+.week-goal-copy:hover {
+    background: #FFFFFF;
+    transform: scale(1.08);
 }
 
 .week-goal-delete:hover {
@@ -2774,6 +2786,7 @@ body {
 @media (hover: none) {
     .week-add-btn,
     .week-copy-btn,
+    .week-goal-copy,
     .week-goal-delete,
     .week-goal-handle,
     .goal-item-drag-handle,
@@ -2854,6 +2867,7 @@ body {
         padding: 4px 0;
     }
 
+    .week-goal-copy,
     .week-goal-delete,
     .year-goal-item .year-goal-delete,
     .goal-item-row .goal-item-delete,
@@ -2864,6 +2878,7 @@ body {
         font-size: 17px;
     }
 
+    .week-goal-copy,
     .week-copy-btn {
         font-size: 14px;
     }
