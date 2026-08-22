@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-title" content="MyCal" />
     <title>MyCal</title>
     <!-- ?v= 每次改版都要跟著換，否則手機會一直吃舊快取（見 app.js 的 APP_VERSION） -->
-    <link rel="stylesheet" href="style.css?v=20260816l" />
+    <link rel="stylesheet" href="style.css?v=20260816m" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2" />
     <link rel="apple-touch-icon" href="icons/icon-192.png?v=2" />
@@ -79,7 +79,11 @@
             📊 <span id="progressRate">0%</span>
           </button>
 
-          <button id="weekPanelBtn" class="icon-btn week-toggle-btn" title="顯示／隱藏週目標欄">
+          <button id="monthPanelBtn" class="icon-btn week-toggle-btn" title="月目標">
+            月
+          </button>
+
+          <button id="weekPanelBtn" class="icon-btn week-toggle-btn" title="週目標">
             週
           </button>
 
@@ -103,22 +107,6 @@
         <!-- 左側欄 -->
         <aside id="sidebar" class="sidebar">
          <div class="sidebar-inner">
-          <section class="sidebar-block">
-            <h3 id="monthGoalTitle">📅 月目標</h3>
-            <div id="monthGoalsList" class="goal-items-list"></div>
-            <div class="month-goal-input-area">
-              <input
-                type="text"
-                id="monthGoalInput"
-                placeholder="輸入本月目標..."
-              />
-              <div class="color-picker">
-                <div class="color-options" id="monthGoalColorPicker"></div>
-              </div>
-              <button id="addMonthGoalBtn">新增</button>
-            </div>
-          </section>
-
           <section class="sidebar-block">
             <h3>🎨 顏色主題</h3>
             <p class="sidebar-hint">取消勾選可隱藏該顏色，點名稱可改主題</p>
@@ -144,20 +132,31 @@
           <div id="calendarGrid" class="calendar-grid"></div>
         </main>
 
-        <!-- 週目標欄 -->
+        <!-- 右側欄：週目標／月目標共用，靠上方的「週」「月」按鈕切換 -->
         <aside id="weekPanel" class="week-panel">
           <div class="week-panel-inner">
             <div class="week-panel-header">
-              <h3>📆 週目標</h3>
-              <button
-                id="closeWeekPanelBtn"
-                class="icon-btn"
-                title="隱藏週目標欄"
-              >
+              <h3 id="weekPanelTitle">📆 週目標</h3>
+              <h3 id="monthGoalTitle" class="hidden">📅 月目標</h3>
+              <button id="closeWeekPanelBtn" class="icon-btn" title="隱藏此欄">
                 &times;
               </button>
             </div>
             <div id="weekPanelBody" class="week-list"></div>
+            <div id="monthPanelBody" class="month-panel-body hidden">
+              <div id="monthGoalsList" class="goal-items-list"></div>
+              <div class="month-goal-input-area">
+                <input
+                  type="text"
+                  id="monthGoalInput"
+                  placeholder="輸入本月目標..."
+                />
+                <div class="color-picker">
+                  <div class="color-options" id="monthGoalColorPicker"></div>
+                </div>
+                <button id="addMonthGoalBtn">新增</button>
+              </div>
+            </div>
           </div>
         </aside>
       </div>
@@ -401,7 +400,7 @@
       </div>
     </div>
 
-    <script type="module" src="app.js?v=20260816l"></script>
+    <script type="module" src="app.js?v=20260816m"></script>
     <script>
       if ('serviceWorker' in navigator) {
         // updateViaCache: 'none' -> sw.js 本身也不准走 HTTP 快取

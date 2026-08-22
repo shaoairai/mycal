@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816l";
+const APP_VERSION = "20260816m";
 
 // 全域變數
 let currentUser = null;
@@ -88,6 +88,9 @@ const yearGoalsPanelTitle = document.getElementById("yearGoalsPanelTitle");
 const weekPanel = document.getElementById("weekPanel");
 const weekPanelBody = document.getElementById("weekPanelBody");
 const weekPanelBtn = document.getElementById("weekPanelBtn");
+const weekPanelTitle = document.getElementById("weekPanelTitle");
+const monthPanelBtn = document.getElementById("monthPanelBtn");
+const monthPanelBody = document.getElementById("monthPanelBody");
 const closeWeekPanelBtn = document.getElementById("closeWeekPanelBtn");
 const weekGoalModal = document.getElementById("weekGoalModal");
 const closeWeekGoalModal = document.getElementById("closeWeekGoalModal");
@@ -3367,14 +3370,40 @@ async function deleteWeekGoalItem(weekKey, itemId) {
   }
 }
 
-// 週目標欄顯示／隱藏（記在本機）
+// 右側欄顯示／隱藏＋看的是週目標還是月目標（都記在本機）
 function weekPanelStorageKey() {
   return `mycal_weekPanel_${currentUser}`;
 }
 
+function panelViewStorageKey() {
+  return `mycal_panelView_${currentUser}`;
+}
+
+// "week" | "month"
+let panelView = "week";
+
+function applyPanelView(view) {
+  panelView = view === "month" ? "month" : "week";
+  const isMonth = panelView === "month";
+
+  weekPanelBody.classList.toggle("hidden", isMonth);
+  monthPanelBody.classList.toggle("hidden", !isMonth);
+  weekPanelTitle.classList.toggle("hidden", isMonth);
+  monthGoalTitle.classList.toggle("hidden", !isMonth);
+
+  refreshPanelButtons();
+}
+
+// 兩顆按鈕只有「正在看的那個」會亮，收起來時兩顆都不亮
+function refreshPanelButtons() {
+  const visible = !appBody.classList.contains("week-hidden");
+  weekPanelBtn.classList.toggle("active", visible && panelView === "week");
+  monthPanelBtn.classList.toggle("active", visible && panelView === "month");
+}
+
 function applyWeekPanelState(visible) {
   appBody.classList.toggle("week-hidden", !visible);
-  weekPanelBtn.classList.toggle("active", visible);
+  refreshPanelButtons();
   if (visible && isNarrowLayout()) appBody.classList.add("sidebar-hidden");
 }
 
@@ -3387,20 +3416,42 @@ function setWeekPanelVisible(visible) {
   }
 }
 
+function setPanelView(view) {
+  applyPanelView(view);
+  try {
+    localStorage.setItem(panelViewStorageKey(), panelView);
+  } catch (error) {
+    console.error("儲存側欄頁籤失敗:", error);
+  }
+}
+
 function loadWeekPanelVisibility() {
   let saved = null;
+  let savedView = null;
   try {
     saved = localStorage.getItem(weekPanelStorageKey());
+    savedView = localStorage.getItem(panelViewStorageKey());
   } catch (error) {
     console.error("讀取週目標欄設定失敗:", error);
   }
+  applyPanelView(savedView || "week");
   // 沒設定過時，寬螢幕才預設展開（窄螢幕塞不下三欄）
   applyWeekPanelState(saved === null ? window.innerWidth > 1100 : saved !== "0");
 }
 
-weekPanelBtn.addEventListener("click", () => {
-  setWeekPanelVisible(appBody.classList.contains("week-hidden"));
-});
+// 按已經在看的那一頁＝收起來；按另一頁＝切過去（順便展開）
+function togglePanel(view) {
+  const visible = !appBody.classList.contains("week-hidden");
+  if (visible && panelView === view) {
+    setWeekPanelVisible(false);
+    return;
+  }
+  setPanelView(view);
+  setWeekPanelVisible(true);
+}
+
+weekPanelBtn.addEventListener("click", () => togglePanel("week"));
+monthPanelBtn.addEventListener("click", () => togglePanel("month"));
 
 closeWeekPanelBtn.addEventListener("click", () => setWeekPanelVisible(false));
 

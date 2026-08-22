@@ -643,6 +643,13 @@ body {
     gap: 10px;
 }
 
+/* 月目標分頁：跟週目標共用這一欄，一次只顯示其中一個（靠 .hidden 切換） */
+.month-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
 /* 每一週一張卡片 */
 .week-card {
     background: var(--bg-card);
