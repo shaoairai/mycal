@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816h";
+const APP_VERSION = "20260816i";
 
 // 全域變數
 let currentUser = null;
@@ -490,6 +490,10 @@ function createDragTransfer() {
 // 長按拖曳進行中：左右滑動換月要靠它避開搬項目的手勢
 let touchDragActive = false;
 
+// 拖曳期間被擋下來的重畫，放開後要補上
+let calendarRefreshPending = false;
+let itemsListRefreshPending = false;
+
 // 手指底下是哪個元素。elementFromPoint 在月曆上偶爾會停在格子外層
 // （空隙、內距、或被上層元素擋住），拖曳就找不到日期格、放開等於沒放。
 // 所以只要人還在月曆區內，就再用格子本身的座標範圍補抓一次。
@@ -651,6 +655,9 @@ function initTouchDragBridge() {
     } finally {
       // 中間任何一步爆掉都要收乾淨，否則分身會卡在畫面上、下一次拖曳也壞掉
       reset();
+      // 拖曳期間擋下來的重畫補回去（搬移本身寫進 Firebase 後也會再畫一次）
+      if (calendarRefreshPending && currentUser) updateCalendarStatus();
+      if (itemsListRefreshPending) renderItemsList();
     }
   }
 
@@ -1161,6 +1168,15 @@ function getDayItemsSorted(items) {
 
 // 更新日曆上的項目顯示
 function updateCalendarStatus() {
+  // 這裡會把格子裡的項目整批重建。正在拖的那顆一旦被移除，瀏覽器就會丟
+  // touchcancel，拖曳等於在原地被放開（同一天＝沒搬動）。Firebase 的即時
+  // 更新什麼時候到不一定，所以拖曳期間先擱著，放開之後再補畫一次。
+  if (touchDragActive) {
+    calendarRefreshPending = true;
+    return;
+  }
+  calendarRefreshPending = false;
+
   const days = calendarGrid.querySelectorAll(".calendar-day:not(.empty)");
 
   days.forEach((dayDiv) => {
@@ -1412,6 +1428,13 @@ let draggedModalItem = null;
 // 渲染項目列表
 function renderItemsList() {
   if (!selectedDate) return;
+
+  // 同 updateCalendarStatus：重建列表會把正在拖的那一列抽掉，拖曳就斷了
+  if (touchDragActive) {
+    itemsListRefreshPending = true;
+    return;
+  }
+  itemsListRefreshPending = false;
 
   const data = dailyGoalsData[selectedDate];
   const items = data?.items || {};
