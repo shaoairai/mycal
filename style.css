@@ -2494,6 +2494,11 @@ body {
     cursor: default;
 }
 
+.stats-year-nav .nav-arrow:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
 .stats-view-toggle {
     display: flex;
     gap: 8px;

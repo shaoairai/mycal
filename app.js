@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816n";
+const APP_VERSION = "20260816o";
 
 // 全域變數
 let currentUser = null;
@@ -3844,11 +3844,15 @@ let currentStatsView = "grid"; // "grid" or "chart"
 // 統計彈窗自己記一個年份，跟月曆分開：翻年份看歷史時月曆不用跟著跳
 let statsYear = currentYear;
 
+// 這個 App 從 2026 年開始用，再往前翻都是空的
+const STATS_MIN_YEAR = 2026;
+
 async function showStatsYear(year) {
-  statsYear = year;
-  statsYearLabel.textContent = `${year} 年`;
+  statsYear = Math.max(year, STATS_MIN_YEAR);
+  statsYearLabel.textContent = `${statsYear} 年`;
+  statsPrevYearBtn.disabled = statsYear <= STATS_MIN_YEAR;
   // 沒有資料的未來年份可以看，但沒必要一直往後翻
-  statsNextYearBtn.disabled = year >= new Date().getFullYear() + 1;
+  statsNextYearBtn.disabled = statsYear >= new Date().getFullYear() + 1;
   statsContent.innerHTML = '<p class="loading-text">載入中...</p>';
   cachedStatsData = null;
   await loadAllUsersStats();
