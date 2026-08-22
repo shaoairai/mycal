@@ -1468,6 +1468,8 @@ body {
     display: flex;
     flex-direction: column;
     padding: 12px 16px 16px;
+    /* 換月動畫會把月曆往旁邊挪一點，不夾住的話整頁會冒出橫向捲軸 */
+    overflow-x: clip;
 }
 
 /* 日曆整區都不給選字：長按是拿來拖曳的，跳出選取控點和放大鏡只會擋住畫面 */
@@ -1476,6 +1478,36 @@ body {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+}
+
+/* 換月的滑入動畫：翻上一月從左邊進來，翻下一月從右邊進來 */
+.calendar-grid.slide-from-left {
+    animation: calendarSlideFromLeft 0.18s ease-out;
+}
+
+.calendar-grid.slide-from-right {
+    animation: calendarSlideFromRight 0.18s ease-out;
+}
+
+@keyframes calendarSlideFromLeft {
+    from {
+        opacity: 0.4;
+        transform: translateX(-6%);
+    }
+}
+
+@keyframes calendarSlideFromRight {
+    from {
+        opacity: 0.4;
+        transform: translateX(6%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .calendar-grid.slide-from-left,
+    .calendar-grid.slide-from-right {
+        animation: none;
+    }
 }
 
 .calendar-weekdays {

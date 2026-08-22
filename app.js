@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816d";
+const APP_VERSION = "20260816e";
 
 // 全域變數
 let currentUser = null;
@@ -460,6 +460,9 @@ function createDragTransfer() {
   }
 }
 
+// 長按拖曳進行中：左右滑動換月要靠它避開搬項目的手勢
+let touchDragActive = false;
+
 function initTouchDragBridge() {
   let source = null;
   let lastTarget = null;
@@ -533,6 +536,7 @@ function initTouchDragBridge() {
     lastTarget = null;
     dragging = false;
     transfer = null;
+    touchDragActive = false;
   }
 
   document.addEventListener(
@@ -550,6 +554,7 @@ function initTouchDragBridge() {
       holdTimer = setTimeout(() => {
         if (!source) return;
         dragging = true;
+        touchDragActive = true;
         transfer = createDragTransfer();
         fire(source, "dragstart", startX, startY);
         showGhost(source, startX, startY);
@@ -1239,17 +1244,95 @@ function goToMonth(year, month) {
   if (yearChanged) loadYearGoals();
 }
 
-// 上一月
-prevMonthBtn.addEventListener("click", () => {
-  const prev = currentMonth - 1;
-  goToMonth(prev < 0 ? currentYear - 1 : currentYear, prev < 0 ? 11 : prev);
-});
+// 前後翻月（跨年自動進位），delta 為負是往回
+function shiftMonth(delta) {
+  const target = currentMonth + delta;
+  goToMonth(currentYear + Math.floor(target / 12), ((target % 12) + 12) % 12);
+  playMonthSlide(delta);
+}
 
-// 下一月
-nextMonthBtn.addEventListener("click", () => {
-  const next = currentMonth + 1;
-  goToMonth(next > 11 ? currentYear + 1 : currentYear, next > 11 ? 0 : next);
-});
+// 換月時讓月曆輕輕滑進來，滑動換月才知道自己往哪個方向翻
+function playMonthSlide(delta) {
+  calendarGrid.classList.remove("slide-from-left", "slide-from-right");
+  void calendarGrid.offsetWidth; // 強制重排，否則連翻同方向不會重播動畫
+  calendarGrid.classList.add(delta < 0 ? "slide-from-left" : "slide-from-right");
+}
+
+prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
+nextMonthBtn.addEventListener("click", () => shiftMonth(1));
+
+// 月曆上左右滑動換月。門檻放寬一點，不然直向捲動時手指一斜就翻月。
+const SWIPE_MIN_PX = 70;
+const SWIPE_OFF_AXIS_RATIO = 0.6; // 直向位移超過橫向的六成就當成在捲動
+
+// 滑完有些瀏覽器還是會補一個 click，不擋掉會順手開到新月份的日期彈窗
+function swallowNextClick(area) {
+  const swallow = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  area.addEventListener("click", swallow, { capture: true, once: true });
+  setTimeout(() => area.removeEventListener("click", swallow, true), 400);
+}
+
+function initCalendarSwipe() {
+  const area = document.querySelector(".calendar-section");
+  if (!area) return;
+
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  area.addEventListener(
+    "touchstart",
+    (e) => {
+      tracking = e.touches.length === 1;
+      if (!tracking) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+
+  // 中途多一根手指就是縮放之類的操作，不要當成滑動
+  area.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length !== 1) tracking = false;
+    },
+    { passive: true }
+  );
+
+  area.addEventListener("touchcancel", () => {
+    tracking = false;
+  });
+
+  area.addEventListener(
+    "touchend",
+    (e) => {
+      if (!tracking) return;
+      tracking = false;
+
+      // 這個 handler 比拖曳橋接的 document 監聽早跑，所以旗標還沒被清掉：
+      // 長按拖曳中的手指是在搬項目，不是要換月
+      if (touchDragActive) return;
+
+      const touch = e.changedTouches[0];
+      if (!touch) return;
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) < SWIPE_MIN_PX) return;
+      if (Math.abs(dy) > Math.abs(dx) * SWIPE_OFF_AXIS_RATIO) return;
+
+      shiftMonth(dx < 0 ? -1 : 1);
+      swallowNextClick(area);
+    },
+    { passive: true }
+  );
+}
+
+initCalendarSwipe();
 
 // 回到今天
 todayBtn.addEventListener("click", () => {
