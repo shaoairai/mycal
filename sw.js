@@ -1,5 +1,5 @@
 // 換名字才會清掉舊版快取
-const CACHE_NAME = 'mycal-v6';
+const CACHE_NAME = 'mycal-v7';
 
 // 離線時至少要能開得起來，其餘檔案在第一次抓到時順手存起來
 const OFFLINE_URLS = ['/mycal/', '/mycal/index.html'];

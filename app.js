@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816f";
+const APP_VERSION = "20260816g";
 
 // 全域變數
 let currentUser = null;
@@ -1287,7 +1287,10 @@ function initCalendarSwipe() {
   area.addEventListener(
     "touchstart",
     (e) => {
-      tracking = e.touches.length === 1;
+      // 手指按在項目上就是想搬它。長按沒撐滿 220 毫秒的話拖曳會中止，
+      // 這時若還當成滑動，使用者會看到月份被翻掉而不是項目被搬走。
+      tracking =
+        e.touches.length === 1 && !e.target.closest?.('[draggable="true"]');
       if (!tracking) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
@@ -1295,11 +1298,11 @@ function initCalendarSwipe() {
     { passive: true }
   );
 
-  // 中途多一根手指就是縮放之類的操作，不要當成滑動
   area.addEventListener(
     "touchmove",
     (e) => {
-      if (e.touches.length !== 1) tracking = false;
+      // 中途多一根手指就是縮放之類的操作，不要當成滑動
+      if (e.touches.length !== 1 || touchDragActive) tracking = false;
     },
     { passive: true }
   );
