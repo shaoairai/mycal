@@ -1476,11 +1476,40 @@ body {
     display: flex;
     flex-direction: column;
     padding: 12px 16px 16px;
-    /* 換月動畫會把月曆往旁邊挪一點，不夾住的話整頁會冒出橫向捲軸 */
-    overflow-x: clip;
+}
+
+/* 年月下方的顏色圖例：純顯示。塞不下時橫向捲，不要把月曆擠矮 */
+.calendar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    flex-shrink: 0;
+    padding: 0 2px 8px;
+}
+
+.calendar-legend:empty {
+    display: none;
+}
+
+.calendar-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.calendar-legend-dot {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    border-radius: 3px;
 }
 
 /* 日曆整區都不給選字：長按是拿來拖曳的，跳出選取控點和放大鏡只會擋住畫面 */
+.calendar-legend,
 .calendar-weekdays,
 .calendar-grid {
     -webkit-touch-callout: none;
@@ -1488,32 +1517,20 @@ body {
     user-select: none;
 }
 
-/* 換月的滑入動畫：翻上一月從左邊進來，翻下一月從右邊進來 */
-.calendar-grid.slide-from-left {
-    animation: calendarSlideFromLeft 0.18s ease-out;
+/* 換月時淡進來。刻意不用位移：月曆一旦被挪出邊界，就得在外層加裁切，
+   而裁切會影響 elementFromPoint，觸控拖曳的落點就抓不到日期格了 */
+.calendar-grid.month-changed {
+    animation: calendarMonthFade 0.18s ease-out;
 }
 
-.calendar-grid.slide-from-right {
-    animation: calendarSlideFromRight 0.18s ease-out;
-}
-
-@keyframes calendarSlideFromLeft {
+@keyframes calendarMonthFade {
     from {
-        opacity: 0.4;
-        transform: translateX(-6%);
-    }
-}
-
-@keyframes calendarSlideFromRight {
-    from {
-        opacity: 0.4;
-        transform: translateX(6%);
+        opacity: 0.35;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .calendar-grid.slide-from-left,
-    .calendar-grid.slide-from-right {
+    .calendar-grid.month-changed {
         animation: none;
     }
 }
@@ -2984,6 +3001,18 @@ body {
 
     .calendar-section {
         padding: 8px;
+    }
+
+    /* 窄螢幕塞不下八個就橫向捲，換行會吃掉月曆的高度 */
+    .calendar-legend {
+        flex-wrap: nowrap;
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+    }
+
+    .calendar-legend-item {
+        font-size: 11px;
     }
 
     .calendar-weekdays div {

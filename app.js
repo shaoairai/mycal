@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816g";
+const APP_VERSION = "20260816h";
 
 // 全域變數
 let currentUser = null;
@@ -197,6 +197,7 @@ const SCHEDULE_DEFS = [
 const DEFAULT_SCHEDULE = "daily";
 
 const colorThemeList = document.getElementById("colorThemeList");
+const calendarLegend = document.getElementById("calendarLegend");
 
 // 使用者自訂的顏色主題名稱 { blue: "運動", ... }
 let colorThemeNames = {};
@@ -317,6 +318,7 @@ function renderColorThemes() {
       }
       saveHiddenColors();
       row.classList.toggle("off", !checkbox.checked);
+      renderCalendarLegend();
       updateCalendarStatus();
       renderWeekGoals();
     });
@@ -335,6 +337,31 @@ function renderColorThemes() {
     if (!checkbox.checked) row.classList.add("off");
     colorThemeList.appendChild(row);
   });
+
+  renderCalendarLegend();
+}
+
+// 月曆上方的圖例：只列出目前沒被隱藏的顏色，純顯示不能點，
+// 改名稱和顯示／隱藏都留在側邊欄，免得月曆上多出一排可誤觸的東西
+function renderCalendarLegend() {
+  calendarLegend.innerHTML = "";
+
+  COLOR_DEFS.filter(({ key }) => !hiddenColors.has(key)).forEach(
+    ({ key, hex }) => {
+      const chip = document.createElement("span");
+      chip.className = "calendar-legend-item";
+
+      const dot = document.createElement("span");
+      dot.className = "calendar-legend-dot";
+      dot.style.background = hex;
+
+      const name = document.createElement("span");
+      name.textContent = getColorLabel(key);
+
+      chip.append(dot, name);
+      calendarLegend.appendChild(chip);
+    }
+  );
 }
 
 // 就地編輯主題名稱
@@ -463,6 +490,23 @@ function createDragTransfer() {
 // 長按拖曳進行中：左右滑動換月要靠它避開搬項目的手勢
 let touchDragActive = false;
 
+// 手指底下是哪個元素。elementFromPoint 在月曆上偶爾會停在格子外層
+// （空隙、內距、或被上層元素擋住），拖曳就找不到日期格、放開等於沒放。
+// 所以只要人還在月曆區內，就再用格子本身的座標範圍補抓一次。
+function elementUnderPoint(x, y) {
+  const hit = document.elementFromPoint(x, y);
+  if (!hit || hit.closest(".calendar-day")) return hit;
+
+  // 彈窗蓋在月曆上時，底下的格子不算落點，所以要先確認手指真的在月曆區
+  if (!hit.closest(".calendar-section")) return hit;
+
+  const day = [...document.querySelectorAll(".calendar-day")].find((el) => {
+    const rect = el.getBoundingClientRect();
+    return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+  });
+  return day || hit;
+}
+
 function initTouchDragBridge() {
   let source = null;
   let lastTarget = null;
@@ -584,7 +628,7 @@ function initTouchDragBridge() {
       lastY = touch.clientY;
       moveGhost(touch.clientX, touch.clientY);
 
-      const under = document.elementFromPoint(touch.clientX, touch.clientY);
+      const under = elementUnderPoint(touch.clientX, touch.clientY);
       if (under !== lastTarget) {
         fire(lastTarget, "dragleave", touch.clientX, touch.clientY);
         lastTarget = under;
@@ -600,7 +644,7 @@ function initTouchDragBridge() {
     try {
       if (dragging) {
         // 一律用自己記的最後座標：touchend 的跟它一樣，touchcancel 的則是壞的
-        const under = document.elementFromPoint(lastX, lastY);
+        const under = elementUnderPoint(lastX, lastY);
         fire(under, "drop", lastX, lastY);
         fire(source, "dragend", lastX, lastY);
       }
@@ -1248,14 +1292,9 @@ function goToMonth(year, month) {
 function shiftMonth(delta) {
   const target = currentMonth + delta;
   goToMonth(currentYear + Math.floor(target / 12), ((target % 12) + 12) % 12);
-  playMonthSlide(delta);
-}
-
-// 換月時讓月曆輕輕滑進來，滑動換月才知道自己往哪個方向翻
-function playMonthSlide(delta) {
-  calendarGrid.classList.remove("slide-from-left", "slide-from-right");
+  calendarGrid.classList.remove("month-changed");
   void calendarGrid.offsetWidth; // 強制重排，否則連翻同方向不會重播動畫
-  calendarGrid.classList.add(delta < 0 ? "slide-from-left" : "slide-from-right");
+  calendarGrid.classList.add("month-changed");
 }
 
 prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
@@ -1289,8 +1328,10 @@ function initCalendarSwipe() {
     (e) => {
       // 手指按在項目上就是想搬它。長按沒撐滿 220 毫秒的話拖曳會中止，
       // 這時若還當成滑動，使用者會看到月份被翻掉而不是項目被搬走。
+      // 圖例那排自己會橫向捲，也不該順便翻月。
       tracking =
-        e.touches.length === 1 && !e.target.closest?.('[draggable="true"]');
+        e.touches.length === 1 &&
+        !e.target.closest?.('[draggable="true"], .calendar-legend');
       if (!tracking) return;
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
