@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816m";
+const APP_VERSION = "20260816n";
 
 // 全域變數
 let currentUser = null;
@@ -3830,6 +3830,9 @@ const closeStatsModal = document.getElementById("closeStatsModal");
 const statsContent = document.getElementById("statsContent");
 const statsGridViewBtn = document.getElementById("statsGridViewBtn");
 const statsChartViewBtn = document.getElementById("statsChartViewBtn");
+const statsYearLabel = document.getElementById("statsYearLabel");
+const statsPrevYearBtn = document.getElementById("statsPrevYearBtn");
+const statsNextYearBtn = document.getElementById("statsNextYearBtn");
 
 // 使用者顏色對應
 const userColors = ["#3498DB", "#E74C3C", "#2ECC71", "#F1C40F", "#9B59B6", "#E91E63", "#1ABC9C", "#E67E22"];
@@ -3838,15 +3841,28 @@ const userColors = ["#3498DB", "#E74C3C", "#2ECC71", "#F1C40F", "#9B59B6", "#E91
 let cachedStatsData = null;
 let currentStatsView = "grid"; // "grid" or "chart"
 
-// 開啟統計彈窗
-viewStatsBtn.addEventListener("click", async () => {
-  statsModal.classList.remove("hidden");
-  const statsTitle = document.getElementById("statsTitle");
-  if (statsTitle) statsTitle.textContent = `📊 ${currentYear} 年統計總覽`;
+// 統計彈窗自己記一個年份，跟月曆分開：翻年份看歷史時月曆不用跟著跳
+let statsYear = currentYear;
+
+async function showStatsYear(year) {
+  statsYear = year;
+  statsYearLabel.textContent = `${year} 年`;
+  // 沒有資料的未來年份可以看，但沒必要一直往後翻
+  statsNextYearBtn.disabled = year >= new Date().getFullYear() + 1;
   statsContent.innerHTML = '<p class="loading-text">載入中...</p>';
   cachedStatsData = null;
   await loadAllUsersStats();
+}
+
+// 開啟統計彈窗
+viewStatsBtn.addEventListener("click", async () => {
+  statsModal.classList.remove("hidden");
+  // 每次開啟都從月曆目前的年份起算
+  await showStatsYear(currentYear);
 });
+
+statsPrevYearBtn.addEventListener("click", () => showStatsYear(statsYear - 1));
+statsNextYearBtn.addEventListener("click", () => showStatsYear(statsYear + 1));
 
 // 關閉統計彈窗
 closeStatsModal.addEventListener("click", () => {
@@ -3889,17 +3905,21 @@ async function loadAllUsersStats() {
     }
 
     const users = Object.keys(whitelistSnapshot.val());
-    cachedStatsData = [];
+    const year = statsYear;
+    const collected = [];
 
     for (let i = 0; i < users.length; i++) {
       const phone = users[i];
       const userColor = userColors[i % userColors.length];
 
-      // 取得該使用者目前年份的資料
-      const monthlyRates = await getUserMonthlyRates(phone, currentYear);
-      const yearGoals = await getUserYearGoals(phone, currentYear);
+      // 取得該使用者在統計彈窗選定年份的資料
+      const monthlyRates = await getUserMonthlyRates(phone, year);
+      const yearGoals = await getUserYearGoals(phone, year);
 
-      cachedStatsData.push({
+      // 讀的過程中又被翻到別年，這批就作廢，不要蓋掉新的那批
+      if (year !== statsYear) return;
+
+      collected.push({
         phone,
         color: userColor,
         monthlyRates,
@@ -3907,6 +3927,7 @@ async function loadAllUsersStats() {
       });
     }
 
+    cachedStatsData = collected;
     renderStatsView();
   } catch (error) {
     console.error("載入統計資料失敗:", error);

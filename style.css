@@ -2465,10 +2465,38 @@ body {
 }
 
 /* ==================== 統計總覽樣式 ==================== */
+/* 年份切換和檢視切換同一列，窄螢幕塞不下就各自佔一行 */
+.stats-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.stats-year-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.stats-year-label {
+    min-width: 72px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.stats-year-nav .nav-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
 .stats-view-toggle {
     display: flex;
     gap: 8px;
-    margin-bottom: 16px;
 }
 
 .stats-view-toggle .view-btn {
