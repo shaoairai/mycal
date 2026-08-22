@@ -693,7 +693,8 @@ body {
 }
 
 .week-add-btn,
-.week-copy-btn {
+.week-copy-btn,
+.week-clear-btn {
     width: 24px;
     height: 24px;
     border: none;
@@ -711,8 +712,10 @@ body {
 
 .week-card:hover .week-add-btn,
 .week-card:hover .week-copy-btn,
+.week-card:hover .week-clear-btn,
 .week-card.current .week-add-btn,
-.week-card.current .week-copy-btn {
+.week-card.current .week-copy-btn,
+.week-card.current .week-clear-btn {
     opacity: 1;
 }
 
@@ -722,8 +725,15 @@ body {
     color: var(--text-on-primary);
 }
 
-/* 📋 的字面比＋小一點，補回來才不會看起來一大一小 */
-.week-copy-btn {
+/* 清空是不可逆的，hover 用警示色，不跟其他鈕同一個顏色 */
+.week-clear-btn:hover {
+    background: #C45C4A;
+    color: var(--text-on-primary);
+}
+
+/* 📋 和 🗑 的字面比＋小一點，補回來才不會看起來一大一小 */
+.week-copy-btn,
+.week-clear-btn {
     font-size: 12px;
 }
 
@@ -2786,6 +2796,7 @@ body {
 @media (hover: none) {
     .week-add-btn,
     .week-copy-btn,
+    .week-clear-btn,
     .week-goal-copy,
     .week-goal-delete,
     .week-goal-handle,
@@ -2872,14 +2883,16 @@ body {
     .year-goal-item .year-goal-delete,
     .goal-item-row .goal-item-delete,
     .week-add-btn,
-    .week-copy-btn {
+    .week-copy-btn,
+    .week-clear-btn {
         width: 30px;
         height: 30px;
         font-size: 17px;
     }
 
     .week-goal-copy,
-    .week-copy-btn {
+    .week-copy-btn,
+    .week-clear-btn {
         font-size: 14px;
     }
 

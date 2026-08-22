@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816k";
+const APP_VERSION = "20260816l";
 
 // 全域變數
 let currentUser = null;
@@ -2928,13 +2928,19 @@ function renderWeekGoals() {
     copyBtn.title = "把這週的目標整批複製到下週";
     copyBtn.addEventListener("click", () => copyWeekGoalsToNextWeek(week));
 
+    const clearBtn = document.createElement("button");
+    clearBtn.className = "week-clear-btn";
+    clearBtn.textContent = "🗑";
+    clearBtn.title = "清除這週所有目標";
+    clearBtn.addEventListener("click", () => clearWeekGoals(week));
+
     const addBtn = document.createElement("button");
     addBtn.className = "week-add-btn";
     addBtn.textContent = "＋";
     addBtn.title = "新增週目標";
     addBtn.addEventListener("click", () => openWeekGoalModal(week));
 
-    header.append(badge, range, copyBtn, addBtn);
+    header.append(badge, range, copyBtn, clearBtn, addBtn);
     card.appendChild(header);
 
     const list = document.createElement("div");
@@ -3122,6 +3128,39 @@ async function moveWeekGoal(fromWeekKey, itemId, toWeekKey) {
   } catch (error) {
     console.error("移動週目標失敗:", error);
     alert("移動失敗，請稍後再試");
+  }
+}
+
+// 清空一整週。刪掉就沒了，所以一定要問過；顏色被隱藏的那幾條也一起算、一起清
+async function clearWeekGoals(week) {
+  if (!currentUser) return;
+
+  const items = weeklyGoalsData[week.key]?.items || {};
+  const count = Object.keys(items).length;
+  if (count === 0) {
+    showToast("這週還沒有目標");
+    return;
+  }
+
+  const hidden = Object.values(items).filter((item) =>
+    hiddenColors.has(item.color || "blue")
+  ).length;
+  const note = hidden > 0 ? `\n（含 ${hidden} 個因顏色隱藏、目前看不到的）` : "";
+
+  if (
+    !confirm(
+      `確定要清除 ${formatWeekRange(week.start, week.end)} 這週的 ${count} 個目標嗎？${note}\n\n刪除後無法復原。`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    await set(ref(db, `users/${currentUser}/weeklyGoals/${week.key}/items`), null);
+    showToast(`已清除 ${count} 項`);
+  } catch (error) {
+    console.error("清除週目標失敗:", error);
+    alert("清除失敗，請稍後再試");
   }
 }
 
