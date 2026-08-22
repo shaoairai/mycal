@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816e";
+const APP_VERSION = "20260816f";
 
 // 全域變數
 let currentUser = null;
@@ -1261,7 +1261,8 @@ function playMonthSlide(delta) {
 prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
 nextMonthBtn.addEventListener("click", () => shiftMonth(1));
 
-// 月曆上左右滑動換月。門檻放寬一點，不然直向捲動時手指一斜就翻月。
+// 月曆上左右滑動換月：左滑下一月、右滑上一月。
+// 門檻放寬一點，不然直向捲動時手指一斜就翻月。
 const SWIPE_MIN_PX = 70;
 const SWIPE_OFF_AXIS_RATIO = 0.6; // 直向位移超過橫向的六成就當成在捲動
 
@@ -1325,7 +1326,8 @@ function initCalendarSwipe() {
       if (Math.abs(dx) < SWIPE_MIN_PX) return;
       if (Math.abs(dy) > Math.abs(dx) * SWIPE_OFF_AXIS_RATIO) return;
 
-      shiftMonth(dx < 0 ? -1 : 1);
+      // 跟著內容走：往左滑等於把下個月拉進來，往右滑退回上個月
+      shiftMonth(dx < 0 ? 1 : -1);
       swallowNextClick(area);
     },
     { passive: true }
@@ -3366,20 +3368,30 @@ function renderProgressThemes() {
       picker.appendChild(btn);
     });
 
-    const start = document.createElement("label");
+    // 用上下鍵而不是數字輸入框：達成率一有變動整列就會重畫，
+    // 輸入框會連同鍵盤一起被抽掉，按鈕沒有這個問題
+    const start = document.createElement("div");
     start.className = "schedule-start";
     start.title = "本月從幾號開始算，之前的日子不列入計算";
-    const startInput = document.createElement("input");
-    startInput.type = "number";
-    startInput.inputMode = "numeric";
-    startInput.min = "1";
-    startInput.max = String(theme.daysInMonth);
-    startInput.step = "1";
-    startInput.value = String(theme.firstDay);
-    startInput.addEventListener("change", () =>
-      saveColorStartDay(theme.key, startInput.value)
-    );
-    start.append(startInput, document.createTextNode("號起"));
+
+    const makeStep = (label, delta) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "schedule-start-step";
+      btn.textContent = label;
+      btn.disabled =
+        theme.firstDay + delta < 1 || theme.firstDay + delta > theme.daysInMonth;
+      btn.addEventListener("click", () =>
+        saveColorStartDay(theme.key, theme.firstDay + delta)
+      );
+      return btn;
+    };
+
+    const startValue = document.createElement("span");
+    startValue.className = "schedule-start-value";
+    startValue.textContent = `${theme.firstDay} 號起`;
+
+    start.append(makeStep("▼", -1), startValue, makeStep("▲", 1));
 
     const stat = document.createElement("span");
     stat.className = "progress-theme-stat";
