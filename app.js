@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816o";
+const APP_VERSION = "20260822a";
 
 // 全域變數
 let currentUser = null;
