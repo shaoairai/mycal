@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260816c";
+const APP_VERSION = "20260816d";
 
 // 全域變數
 let currentUser = null;
@@ -460,39 +460,6 @@ function createDragTransfer() {
   }
 }
 
-// 觸控放開後，有沒有真的搬到東西（drop 處理器成功受理就會設成 true）
-let touchDropCommitted = false;
-
-// 暫時性診斷：手機沒有 console 可看，「拖了卻沒搬動」時把狀況印在畫面上。
-// 確認手機拖曳正常後就整段移除。
-function reportTouchDrop(eventType, under, heldFrom) {
-  const describe = (el) => {
-    if (!el) return "null";
-    const cls = typeof el.className === "string" ? el.className.trim() : "";
-    return el.tagName.toLowerCase() + (cls ? "." + cls.split(/\s+/).join(".") : "");
-  };
-  const day = under?.closest?.(".calendar-day");
-  const lines = [
-    `事件 ${eventType}`,
-    `落點 ${describe(under)}`,
-    `日期格 ${day ? day.dataset.date || "(空白格)" : "找不到"}`,
-    `拖的是 ${heldFrom || "(沒有)"}`,
-    `帳號 ${currentUser ? "有" : "無"}`,
-  ];
-
-  let toast = document.getElementById("dragDebugToast");
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.id = "dragDebugToast";
-    toast.className = "drag-debug-toast";
-    toast.addEventListener("click", () => toast.remove());
-    document.body.appendChild(toast);
-  }
-  toast.textContent = lines.join("\n");
-  clearTimeout(toast.dataset.timer);
-  toast.dataset.timer = setTimeout(() => toast.remove(), 15000);
-}
-
 function initTouchDragBridge() {
   let source = null;
   let lastTarget = null;
@@ -622,18 +589,15 @@ function initTouchDragBridge() {
     { passive: false }
   );
 
-  function finish(e) {
+  function finish() {
     if (!source) return;
 
     try {
       if (dragging) {
         // 一律用自己記的最後座標：touchend 的跟它一樣，touchcancel 的則是壞的
         const under = document.elementFromPoint(lastX, lastY);
-        const held = draggedItem ? draggedItem.sourceDate : null;
-        touchDropCommitted = false;
         fire(under, "drop", lastX, lastY);
         fire(source, "dragend", lastX, lastY);
-        if (!touchDropCommitted) reportTouchDrop(e.type, under, held);
       }
     } finally {
       // 中間任何一步爆掉都要收乾淨，否則分身會卡在畫面上、下一次拖曳也壞掉
@@ -1231,7 +1195,6 @@ function updateCalendarStatus() {
 
             const fromId = draggedItem.itemId;
             draggedItem = null;
-            touchDropCommitted = true;
             await reorderDayItems(dateKey, fromId, itemDiv.dataset.itemId);
           });
 
@@ -1611,8 +1574,6 @@ async function handleDayDrop(e) {
   const hasDuplicate = Object.values(targetItems).some(
     (item) => item.text === draggedItem.text
   );
-
-  touchDropCommitted = true;
 
   if (hasDuplicate) {
     const confirmMove = confirm(
