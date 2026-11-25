@@ -34,7 +34,7 @@ const DEFAULT_WHITELIST = {
 
 // 改版時要跟 index.html 裡 style.css / app.js 的 ?v= 一起換，
 // 手機才不會繼續吃舊快取。⋯ 選單最下面會顯示，用來確認手機拿到哪一版。
-const APP_VERSION = "20260822a";
+const APP_VERSION = "20261125a";
 
 // 全域變數
 let currentUser = null;
@@ -814,6 +814,8 @@ passwordInput.addEventListener("keypress", (e) => {
 logoutBtn.addEventListener("click", () => {
   currentUser = null;
   localStorage.removeItem("currentUser");
+  window.mycalUser = null;
+  window.dispatchEvent(new CustomEvent("mycal:logout"));
   loginPage.classList.remove("hidden");
   mainPage.classList.add("hidden");
   phoneInput.value = "";
@@ -834,6 +836,10 @@ function showMainPage() {
   loadYearGoals();
   loadMonthGoal();
   setupRealtimeListeners();
+
+  // 告訴訓練頁（train.js）現在是誰登入
+  window.mycalUser = currentUser;
+  window.dispatchEvent(new CustomEvent("mycal:login"));
 }
 
 // ==================== 修改密碼功能 ====================

@@ -10,7 +10,8 @@
     <meta name="apple-mobile-web-app-title" content="MyCal" />
     <title>MyCal</title>
     <!-- ?v= 每次改版都要跟著換，否則手機會一直吃舊快取（見 app.js 的 APP_VERSION） -->
-    <link rel="stylesheet" href="style.css?v=20260822a" />
+    <link rel="stylesheet" href="style.css?v=20261125a" />
+    <link rel="stylesheet" href="train.css?v=20261125a" />
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png?v=2" />
     <link rel="apple-touch-icon" href="icons/icon-192.png?v=2" />
@@ -70,6 +71,10 @@
               </div>
             </div>
           </div>
+
+          <button id="trainNavBtn" class="nav-btn" title="訓練">
+            ⚔️ <span class="nav-btn-text">訓練</span>
+          </button>
 
           <button
             id="progressNavBtn"
@@ -411,7 +416,78 @@
       </div>
     </div>
 
-    <script type="module" src="app.js?v=20260822a"></script>
+    <!-- 訓練頁：蓋在行事曆上面的獨立一頁，邏輯在 train.js -->
+    <div id="trainPage" class="train-page hidden">
+      <header class="train-header">
+        <button id="trainBackBtn" class="train-icon-btn" title="行事曆">📅</button>
+        <span class="train-title">訓練</span>
+        <button id="trainPlanBtn" class="train-icon-btn" title="課表">☰</button>
+      </header>
+      <main id="trainBody" class="train-body"></main>
+
+      <!-- 課表 -->
+      <div id="trainPlanSheet" class="train-sheet hidden">
+        <header class="train-header">
+          <button class="train-icon-btn" data-close="plan" title="返回">&lsaquo;</button>
+          <span class="train-title">課表</span>
+          <span class="train-icon-btn"></span>
+        </header>
+        <div class="train-body">
+          <div id="trainPlanList" class="train-plan-list"></div>
+          <button id="trainAddBtn" class="train-primary">＋ 新增動作</button>
+        </div>
+      </div>
+
+      <!-- 新增／編輯動作 -->
+      <div id="trainEditSheet" class="train-sheet hidden">
+        <header class="train-header">
+          <button class="train-icon-btn" data-close="edit" title="返回">&lsaquo;</button>
+          <span id="trainEditTitle" class="train-title">新增動作</span>
+          <span class="train-icon-btn"></span>
+        </header>
+        <form id="trainForm" class="train-body train-form">
+          <label for="trainName">動作</label>
+          <input type="text" id="trainName" maxlength="20" placeholder="伏地挺身" />
+          <div id="trainPresets" class="train-chips"></div>
+
+          <label>星期</label>
+          <div id="trainDays" class="train-chips train-chips-days"></div>
+
+          <div class="train-grid">
+            <div>
+              <label for="trainReps">每組</label>
+              <input type="number" id="trainReps" inputmode="decimal" min="0" step="any" />
+            </div>
+            <div>
+              <label for="trainUnit">單位</label>
+              <select id="trainUnit"></select>
+            </div>
+            <div>
+              <label for="trainSets">組數</label>
+              <input type="number" id="trainSets" inputmode="numeric" min="1" step="1" />
+            </div>
+            <div>
+              <label for="trainStep">每週加</label>
+              <input type="number" id="trainStep" inputmode="decimal" min="0" step="any" />
+            </div>
+            <div>
+              <label for="trainCap">上限</label>
+              <input type="number" id="trainCap" inputmode="decimal" min="0" step="any" placeholder="不設" />
+            </div>
+          </div>
+
+          <p id="trainFormError" class="train-error"></p>
+          <button type="submit" class="train-primary">儲存</button>
+          <button type="button" id="trainDeleteBtn" class="train-danger hidden">刪除</button>
+        </form>
+      </div>
+
+      <div id="trainLevelUp" class="train-levelup hidden"></div>
+      <div id="trainToast" class="train-toast hidden"></div>
+    </div>
+
+    <script type="module" src="app.js?v=20261125a"></script>
+    <script type="module" src="train.js?v=20261125a"></script>
     <script>
       if ('serviceWorker' in navigator) {
         // updateViaCache: 'none' -> sw.js 本身也不准走 HTTP 快取
