@@ -9,7 +9,7 @@
     --t-muted: #8A97AD;
     --t-accent: #3DDC97;
     --t-accent-soft: rgba(61, 220, 151, 0.14);
-    --t-xp: #F5A623;
+    --t-gold: #F5A623;
     --t-warn: #FF7A6B;
 
     position: fixed;
@@ -19,6 +19,7 @@
     flex-direction: column;
     background: var(--t-bg);
     color: var(--t-text);
+    font-variant-numeric: tabular-nums;
 }
 
 .train-header {
@@ -31,9 +32,10 @@
 }
 
 .train-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
+    color: var(--t-muted);
 }
 
 .train-icon-btn {
@@ -47,8 +49,12 @@
     cursor: pointer;
 }
 
-button.train-icon-btn:hover {
+.train-icon-btn:hover {
     background: var(--t-card-hi);
+}
+
+.train-icon-btn.is-off {
+    visibility: hidden;
 }
 
 .train-body {
@@ -61,102 +67,67 @@ button.train-icon-btn:hover {
     padding: 16px 16px 40px;
 }
 
-/* ---------- 等級 ---------- */
-.train-hud {
+/* ---------- 本週進度 ---------- */
+.train-week {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     padding: 16px;
     background: var(--t-card);
     border: 1px solid var(--t-border);
     border-radius: 16px;
 }
 
-.train-rank {
-    width: 64px;
-    height: 64px;
+/* --p 是完成百分比 */
+.train-ring {
+    --p: 0;
+    position: relative;
+    width: 84px;
+    height: 84px;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--t-accent);
-    border-radius: 14px;
-    background: var(--t-accent-soft);
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: conic-gradient(var(--t-accent) calc(var(--p) * 1%), var(--t-card-hi) 0);
+}
+
+.train-ring::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: var(--t-card);
+}
+
+.train-ring span {
+    position: relative;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.train-ring small {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--t-muted);
+}
+
+.train-ring.is-clear span {
     color: var(--t-accent);
-    font-size: 34px;
-    font-weight: 800;
-    box-shadow: 0 0 18px rgba(61, 220, 151, 0.25);
 }
 
-.train-rank[data-rank="S"],
-.train-rank[data-rank="A"] {
-    border-color: var(--t-xp);
-    color: var(--t-xp);
-    background: rgba(245, 166, 35, 0.14);
-    box-shadow: 0 0 18px rgba(245, 166, 35, 0.3);
-}
-
-.train-hud-main {
+.train-week-side {
     flex: 1;
     min-width: 0;
-}
-
-.train-hud-row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.train-lv {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-.train-streak {
-    font-size: 0.9rem;
-    color: var(--t-muted);
-}
-
-.train-streak.is-on {
-    color: var(--t-xp);
-}
-
-.train-xpbar {
-    height: 8px;
-    border-radius: 4px;
-    background: var(--t-card-hi);
-    overflow: hidden;
-}
-
-.train-xpbar i {
-    display: block;
-    height: 100%;
-    border-radius: 4px;
-    background: var(--t-xp);
-    transition: width 0.4s ease;
-}
-
-.train-xptext {
-    margin-top: 6px;
-    font-size: 0.75rem;
-    color: var(--t-muted);
-    text-align: right;
-}
-
-/* ---------- 本週 ---------- */
-.train-week {
-    margin-top: 12px;
-    padding: 14px 12px;
-    background: var(--t-card);
-    border: 1px solid var(--t-border);
-    border-radius: 16px;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .train-week-days {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
+    gap: 2px;
 }
 
 .train-day {
@@ -164,266 +135,313 @@ button.train-icon-btn:hover {
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 8px 0;
+    padding: 6px 0;
     border: 1px solid transparent;
     border-radius: 10px;
     font-size: 0.75rem;
     color: var(--t-muted);
 }
 
-.train-day b {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--t-text);
-}
-
 .train-day.is-today {
     border-color: var(--t-accent);
     background: var(--t-accent-soft);
+    color: var(--t-text);
 }
 
-.train-day.is-done b {
-    color: var(--t-accent);
+.train-dot {
+    --p: 0;
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px var(--t-border);
+    background: conic-gradient(var(--t-accent) calc(var(--p) * 1%), transparent 0);
+    color: var(--t-bg);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
 }
 
-.train-day.is-miss b {
-    color: var(--t-warn);
+.train-day.is-rest .train-dot {
+    width: 4px;
+    height: 4px;
+    margin: 7px 0;
+    box-shadow: none;
+    background: var(--t-border);
 }
 
-.train-day.is-rest b {
-    color: var(--t-muted);
+.train-day.is-done .train-dot {
+    box-shadow: none;
+    background: var(--t-accent);
 }
 
-.train-week-total {
-    margin-top: 10px;
+.train-day.is-miss .train-dot {
+    box-shadow: inset 0 0 0 2px var(--t-warn);
+}
+
+.train-streak {
+    align-self: flex-end;
     font-size: 0.85rem;
-    color: var(--t-muted);
-    text-align: center;
-}
-
-.train-week-total.is-clear {
-    color: var(--t-accent);
     font-weight: 600;
+    color: var(--t-muted);
+    opacity: 0.6;
 }
 
+.train-streak.is-on {
+    color: var(--t-gold);
+    opacity: 1;
+}
+
+/* ---------- 上週結算 ---------- */
 .train-banner {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 12px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: var(--t-card-hi);
+}
+
+.train-banner span {
+    padding: 6px 12px;
+    border: 1px solid var(--t-border);
+    border-radius: 999px;
     font-size: 0.85rem;
     color: var(--t-muted);
 }
 
-.train-banner.is-up {
+.train-banner .is-up {
+    border-color: transparent;
     background: var(--t-accent-soft);
     color: var(--t-accent);
-}
-
-/* ---------- 任務 ---------- */
-.train-h {
-    margin: 22px 4px 10px;
-    font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 2px;
-    color: var(--t-muted);
 }
 
-.train-quests {
+.train-rest {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 1.8rem;
+}
+
+/* ---------- 動作卡片 ---------- */
+.train-cards {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    margin-top: 16px;
 }
 
-.train-quest {
-    display: flex;
+.train-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    width: 100%;
-    padding: 16px;
+    padding: 14px;
     background: var(--t-card);
     border: 1px solid var(--t-border);
     border-radius: 16px;
-    color: var(--t-text);
+}
+
+.train-card.is-today {
+    border-color: var(--t-muted);
+}
+
+.train-card.is-done {
+    border-color: var(--t-accent);
+    background: linear-gradient(var(--t-accent-soft), var(--t-accent-soft)), var(--t-card);
+}
+
+.train-card.is-rest {
+    opacity: 0.6;
+}
+
+.train-card-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
     font: inherit;
     text-align: left;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
 }
 
-.train-quest:active {
+.train-ico {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
     background: var(--t-card-hi);
+    font-size: 26px;
 }
 
-.train-quest-main {
+.train-card-text {
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    min-width: 0;
+    gap: 2px;
 }
 
-.train-quest-main b {
-    font-size: 1.1rem;
+.train-card-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8rem;
+    color: var(--t-muted);
 }
 
-.train-quest-main small {
-    font-size: 0.85rem;
+.train-card-text b {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+}
+
+.train-card-text b i {
+    margin: 0 6px 0 2px;
+    font-size: 0.8rem;
+    font-style: normal;
+    font-weight: 500;
     color: var(--t-muted);
 }
 
 .train-check {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--t-border);
+    width: 56px;
+    height: 56px;
+    border: 2px solid var(--t-muted);
     border-radius: 50%;
-    font-size: 22px;
-    font-weight: 700;
+    background: transparent;
     color: var(--t-bg);
+    font-size: 26px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
 
-.train-quest.is-done {
-    border-color: var(--t-accent);
-    background: var(--t-accent-soft);
+.train-check:active,
+.train-pill:not(:disabled):active {
+    transform: scale(0.92);
 }
 
-.train-quest.is-done .train-quest-main b {
-    color: var(--t-accent);
-}
-
-.train-quest.is-done .train-check {
+.train-card.is-done .train-check {
     border-color: var(--t-accent);
     background: var(--t-accent);
 }
 
-.train-rest,
+.train-card-foot {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.train-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.train-pill {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 2px solid var(--t-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--t-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.train-pill:disabled {
+    cursor: default;
+}
+
+.train-pill.is-today {
+    border-color: var(--t-accent);
+    color: var(--t-text);
+}
+
+.train-pill.is-miss {
+    border-color: var(--t-warn);
+    color: var(--t-warn);
+}
+
+.train-pill.is-done {
+    border-color: var(--t-accent);
+    background: var(--t-accent);
+    color: var(--t-bg);
+    font-weight: 700;
+}
+
+.train-next {
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--t-muted);
+    opacity: 0.55;
+}
+
+.train-next.is-on {
+    color: var(--t-accent);
+    opacity: 1;
+}
+
+/* ---------- 還沒有動作 ---------- */
 .train-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 28px 16px;
-    border: 1px dashed var(--t-border);
-    border-radius: 16px;
-    color: var(--t-muted);
+    gap: 24px;
+    padding: 80px 0;
+    font-size: 56px;
 }
 
-.train-rest small {
-    font-size: 0.8rem;
-}
-
-.train-empty {
-    margin-top: 20vh;
-    gap: 16px;
+.train-empty button {
+    width: 72px;
+    height: 72px;
     border: none;
+    border-radius: 50%;
+    background: var(--t-accent);
+    color: var(--t-bg);
+    font-size: 32px;
+    cursor: pointer;
 }
 
-/* ---------- 課表與表單 ---------- */
+/* ---------- 新增／編輯 ---------- */
 .train-sheet {
     position: absolute;
     inset: 0;
-    z-index: 10;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     background: var(--t-bg);
 }
 
-#trainEditSheet {
-    z-index: 20;
-}
-
-.train-plan-list {
+.train-form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
-.train-plan-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    width: 100%;
-    padding: 14px 16px;
-    background: var(--t-card);
-    border: 1px solid var(--t-border);
-    border-radius: 14px;
-    color: var(--t-text);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-
-.train-plan-item b {
-    font-size: 1.05rem;
-}
-
-.train-plan-item small {
-    font-size: 0.85rem;
-    color: var(--t-muted);
-}
-
-.train-plan-item em {
-    font-size: 0.8rem;
-    font-style: normal;
-    color: var(--t-xp);
-}
-
-.train-plan-empty {
-    padding: 24px 0;
-    color: var(--t-muted);
-    text-align: center;
-}
-
-.train-primary,
-.train-danger {
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.train-primary {
-    background: var(--t-accent);
-    color: var(--t-bg);
-}
-
-.train-empty .train-primary {
-    max-width: 240px;
-}
-
-.train-danger {
-    margin-top: 10px;
-    background: transparent;
-    color: var(--t-warn);
-}
-
-.train-form label {
-    display: block;
-    margin: 16px 0 6px;
-    font-size: 0.8rem;
-    color: var(--t-muted);
+    gap: 16px;
 }
 
 .train-form input,
 .train-form select {
     width: 100%;
+    min-width: 0;
     padding: 12px;
-    background: var(--t-card);
     border: 1px solid var(--t-border);
-    border-radius: 10px;
+    border-radius: 12px;
+    background: var(--t-card);
     color: var(--t-text);
-    font-size: 16px;
+    font-family: inherit;
+    font-size: 1rem;
 }
 
 .train-form input:focus,
@@ -432,120 +450,140 @@ button.train-icon-btn:hover {
     border-color: var(--t-accent);
 }
 
-.train-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
+.train-form input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
-.train-chip {
-    padding: 8px 12px;
-    background: var(--t-card);
-    border: 1px solid var(--t-border);
-    border-radius: 20px;
-    color: var(--t-muted);
-    font-size: 0.85rem;
-    cursor: pointer;
+.train-form input[type="number"]::-webkit-outer-spin-button,
+.train-form input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.train-chips {
+    display: grid;
+    gap: 8px;
+}
+
+.train-chips-icons {
+    grid-template-columns: repeat(6, 1fr);
 }
 
 .train-chips-days {
-    display: grid;
     grid-template-columns: repeat(7, 1fr);
-    margin-top: 0;
 }
 
-.train-chips-days .train-chip {
-    padding: 10px 0;
-    border-radius: 10px;
-    font-size: 0.95rem;
+.train-chip {
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--t-border);
+    border-radius: 12px;
+    background: var(--t-card);
+    color: var(--t-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.train-chips-icons .train-chip {
+    font-size: 22px;
 }
 
 .train-chip.is-on {
-    background: var(--t-accent-soft);
     border-color: var(--t-accent);
-    color: var(--t-accent);
+    background: var(--t-accent-soft);
+    color: var(--t-text);
+}
+
+.train-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.train-row-label {
+    width: 68px;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+    color: var(--t-muted);
+}
+
+.train-stepper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--t-border);
+    border-radius: 12px;
+    background: var(--t-card);
+}
+
+.train-stepper:focus-within {
+    border-color: var(--t-accent);
+}
+
+.train-stepper button {
+    width: 48px;
+    height: 46px;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    color: var(--t-text);
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.train-form .train-stepper input {
+    padding: 12px 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    text-align: center;
+    font-size: 1.1rem;
     font-weight: 600;
 }
 
-.train-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0 12px;
+.train-form .train-row select {
+    width: 88px;
+    flex-shrink: 0;
 }
 
 .train-error {
-    min-height: 20px;
-    margin: 12px 0;
+    min-height: 1.3em;
+    margin: 0;
+    text-align: center;
     font-size: 0.85rem;
     color: var(--t-warn);
 }
 
-/* ---------- 升級與提示 ---------- */
-.train-levelup {
-    position: absolute;
-    inset: 0;
-    z-index: 40;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(12, 17, 29, 0.82);
-    animation: train-fade 0.25s ease;
-}
-
-.train-levelup-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 28px 48px;
-    border: 2px solid var(--t-xp);
-    border-radius: 18px;
-    background: var(--t-card);
-    box-shadow: 0 0 40px rgba(245, 166, 35, 0.35);
-    animation: train-pop 0.35s ease;
-}
-
-.train-levelup-box small {
-    font-size: 0.85rem;
-    letter-spacing: 4px;
-    color: var(--t-xp);
-}
-
-.train-levelup-box b {
-    font-size: 2.6rem;
+.train-primary {
+    height: 54px;
+    border: none;
+    border-radius: 14px;
+    background: var(--t-accent);
+    color: var(--t-bg);
+    font-size: 24px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .train-toast {
     position: absolute;
     left: 50%;
     bottom: 32px;
-    z-index: 30;
+    z-index: 5;
     transform: translateX(-50%);
-    padding: 10px 18px;
-    border-radius: 20px;
-    background: var(--t-xp);
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: var(--t-gold);
     color: var(--t-bg);
-    font-size: 0.95rem;
     font-weight: 700;
     white-space: nowrap;
-    animation: train-pop 0.25s ease;
-}
-
-@keyframes train-fade {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes train-pop {
-    from { opacity: 0; scale: 0.85; }
-    to { opacity: 1; scale: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .train-levelup,
-    .train-levelup-box,
-    .train-toast {
-        animation: none;
+    .train-check,
+    .train-pill {
+        transition: none;
     }
 }

@@ -56,25 +56,28 @@ users/{phoneNumber}/
 
 ### Training page (added 2026-11-25)
 
-A separate full-screen dark page on top of the calendar: weekly workout plan, weekly auto-increase, XP/level/rank. Entry is the ⚔️ button in the header; the last view (calendar or training) is remembered per user in `localStorage`.
+A separate full-screen dark page on top of the calendar: weekly workout plan, weekly progress, weekly auto-increase. Entry is the 💪 button in the header; the last view (calendar or training) is remembered per user in `localStorage`.
 
 - `train.js` - all logic, its own ES module; reuses the Firebase app from `app.js` via `getApp()`. `app.js` only sets `window.mycalUser` and fires `mycal:login` / `mycal:logout`.
 - `train.css` - styles, all scoped under `.train-page`.
 - Markup is the `#trainPage` block at the end of `index.html`.
 
+Screen: week card (ring = done/total, one dot per weekday, 🔥 = weeks in a row fully done), chips for last week's result, then one card per exercise (icon, target, a round pill per scheduled day, `⬆ n` = next week's target, lit once the week is fully done; 🏁 = at cap). The big circle marks today done; a red pill is a missed day and can be tapped to make it up. Tapping the left part of a card edits it; `＋` in the header adds one.
+
 Data lives under `users/{phone}/train/`:
 ```
-exercises/{id}   { name, unit, days, reps, sets, step, cap, since, order }   # days: "024", 0=Mon..6=Sun
-log/{YYYY-MM-DD}/{exId}   { name, unit, reps, sets, xp, late, ts }
-weeks/{monday}   { done, total, clear, xp, ups }                               # written when a week is settled
+exercises/{id}   { icon, name, unit, days, reps, sets, step, cap, since, order }   # days: "024", 0=Mon..6=Sun
+log/{YYYY-MM-DD}/{exId}   { name, unit, reps, sets, late, ts }
+weeks/{monday}   { done, total, clear, ups }                                     # written when a week is settled
 meta/week        monday of the week settled up to
 ```
 
 Rules:
+- UI is icon-first: as little text as possible, numbers and icons instead of labels (user request, 2026-11-25).
+- No XP / levels / ranks for now (removed the same day at the user's request); do not add them back unless asked.
 - Week starts Monday (the calendar's week goals start Sunday; the two are independent).
 - Weekly settlement runs in a transaction the first time the page loads in a new week: an exercise whose scheduled days were all done gets `reps += step` (capped by `cap`); otherwise it stays.
-- Missed days can be made up later in the same week (half XP); a missed day does not reset anything.
-- XP is never stored as a total: it is summed from `log` and `weeks` (20 per quest, 10 for a make-up, 50 for a cleared week). Level n needs `100 + 20*(n-1)` XP; ranks E/D/C/B/A/S at level 1/5/10/20/30/45.
+- Missed days can be made up later in the same week; a missed day does not reset anything.
 - No names or artwork from Solo Leveling anywhere.
 
 Testing: the database rejects writes outside whitelisted phone numbers, so browser tests have to run against a real user's `train` node; check it is empty first and delete it afterwards.

@@ -1,11 +1,10 @@
-// ==================== 訓練（每週課表＋每週加量＋等級） ====================
+// ==================== 訓練（每週課表＋每週加量） ====================
 // 獨立於行事曆的一頁。資料放在 users/{phone}/train/：
-//   exercises/{id}: { name, unit, days, reps, sets, step, cap, since, order }
+//   exercises/{id}: { icon, name, unit, days, reps, sets, step, cap, since, order }
 //       days 是字串，0=週一 … 6=週日，例如 "024"；since 之前的日子不算漏做
-//   log/{YYYY-MM-DD}/{exId}: { name, unit, reps, sets, xp, late, ts }
-//   weeks/{該週週一的日期}: { done, total, clear, xp, ups }   ← 過完的週才會寫
+//   log/{YYYY-MM-DD}/{exId}: { name, unit, reps, sets, late, ts }
+//   weeks/{該週週一的日期}: { done, total, clear, ups }   ← 過完的週才會寫
 //   meta/week: 已結算到哪一週（週一的日期）
-// 等級不另外存，一律從 log 與 weeks 的 xp 加總算出來，才不會兩邊對不起來。
 
 import { getApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
@@ -21,29 +20,19 @@ import {
 // app.js 已經 initializeApp 過，這裡拿同一個
 const db = getDatabase(getApp());
 
-const XP_QUEST = 20; // 當天完成
-const XP_LATE = 10; // 補課
-const XP_WEEK = 50; // 整週達標
-
-const RANKS = [
-  [45, "S"],
-  [30, "A"],
-  [20, "B"],
-  [10, "C"],
-  [5, "D"],
-  [1, "E"],
-];
-
 const DAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 const UNITS = ["下", "秒", "分鐘", "公里"];
+const DEFAULT_ICON = "💪";
+// 點圖示會順便帶入名稱、單位與起始的量
 const PRESETS = [
-  { name: "伏地挺身", unit: "下" },
-  { name: "深蹲", unit: "下" },
-  { name: "仰臥起坐", unit: "下" },
-  { name: "引體向上", unit: "下" },
-  { name: "平板撐", unit: "秒" },
-  { name: "跑步", unit: "公里" },
+  { icon: "💪", name: "伏地挺身", unit: "下", reps: 10, sets: 3, step: 2 },
+  { icon: "🦵", name: "深蹲", unit: "下", reps: 15, sets: 3, step: 2 },
+  { icon: "🤸", name: "仰臥起坐", unit: "下", reps: 15, sets: 3, step: 2 },
+  { icon: "🧗", name: "引體向上", unit: "下", reps: 3, sets: 3, step: 1 },
+  { icon: "🧘", name: "平板撐", unit: "秒", reps: 30, sets: 3, step: 5 },
+  { icon: "🏃", name: "跑步", unit: "公里", reps: 2, sets: 1, step: 0.5 },
 ];
+const ICONS = [...PRESETS.map((p) => p.icon), "🚴", "🏊", "🏋️", "🚶", "🥊", "⚡"];
 
 let user = null;
 let data = {};
@@ -51,25 +40,23 @@ let loaded = false;
 let unsubscribe = null;
 let editingId = null;
 let formDays = "";
-// 只有自己剛按下完成時才放升級動畫，別台裝置同步過來的不放
+let formIcon = DEFAULT_ICON;
+// 只有自己剛按下完成時才慶祝，別台裝置同步過來的不算
 let celebrateUntil = 0;
-let lastLevel = null;
 let lastWeekClear = null;
 let toastTimer = null;
 
 const page = document.getElementById("trainPage");
+const title = document.getElementById("trainTitle");
 const body = document.getElementById("trainBody");
 const navBtn = document.getElementById("trainNavBtn");
 const backBtn = document.getElementById("trainBackBtn");
-const planBtn = document.getElementById("trainPlanBtn");
-const planSheet = document.getElementById("trainPlanSheet");
-const planList = document.getElementById("trainPlanList");
 const addBtn = document.getElementById("trainAddBtn");
 const editSheet = document.getElementById("trainEditSheet");
-const editTitle = document.getElementById("trainEditTitle");
+const closeBtn = document.getElementById("trainCloseBtn");
 const form = document.getElementById("trainForm");
+const iconBox = document.getElementById("trainIcons");
 const nameInput = document.getElementById("trainName");
-const presetBox = document.getElementById("trainPresets");
 const daysBox = document.getElementById("trainDays");
 const repsInput = document.getElementById("trainReps");
 const unitSelect = document.getElementById("trainUnit");
@@ -78,7 +65,6 @@ const stepInput = document.getElementById("trainStep");
 const capInput = document.getElementById("trainCap");
 const formError = document.getElementById("trainFormError");
 const deleteBtn = document.getElementById("trainDeleteBtn");
-const levelUp = document.getElementById("trainLevelUp");
 const toast = document.getElementById("trainToast");
 
 // ==================== 日期工具 ====================
@@ -111,10 +97,19 @@ function todayIso() {
   return iso(new Date());
 }
 
+function shortDate(s) {
+  const d = parseIso(s);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 // ==================== 計算 ====================
 
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
 function num(n) {
-  return String(Math.round(n * 100) / 100);
+  return String(round2(n));
 }
 
 function escapeHtml(text) {
@@ -158,30 +153,7 @@ function weekSummary(d, wk) {
   return { total, done, clear: total > 0 && done === total, perEx };
 }
 
-function totalXp(d, wk) {
-  let xp = 0;
-  for (const day of Object.values(d.log || {})) {
-    for (const entry of Object.values(day)) xp += entry.xp || 0;
-  }
-  for (const week of Object.values(d.weeks || {})) xp += week.xp || 0;
-  // 本週還沒結算，達標的獎勵先算進來
-  if (weekSummary(d, wk).clear) xp += XP_WEEK;
-  return xp;
-}
-
-function levelInfo(xp) {
-  let lv = 1;
-  let need = 100;
-  while (xp >= need) {
-    xp -= need;
-    lv += 1;
-    need = 100 + 20 * (lv - 1);
-  }
-  const rank = RANKS.find(([min]) => lv >= min)[1];
-  return { lv, cur: xp, need, rank };
-}
-
-// 連續達標幾週（本週已達標也算）
+// 連續完成幾週（本週已完成也算）
 function streakWeeks(d, wk) {
   let n = weekSummary(d, wk).clear ? 1 : 0;
   let prev = addDays(wk, -7);
@@ -192,22 +164,17 @@ function streakWeeks(d, wk) {
   return n;
 }
 
-function volumeOf(d, exId) {
-  let sum = 0;
-  for (const day of Object.values(d.log || {})) {
-    const entry = day[exId];
-    if (entry) sum += (entry.reps || 0) * (entry.sets || 1);
-  }
-  return sum;
-}
-
-function targetText(ex) {
-  const base = `${num(ex.reps)} ${ex.unit}`;
-  return ex.sets > 1 ? `${base} × ${ex.sets} 組` : base;
-}
-
 function atCap(ex) {
   return Boolean(ex.cap) && ex.reps >= ex.cap;
+}
+
+// 整週做完的話下週的量；不會再加就回 null
+function nextReps(ex) {
+  const step = Number(ex.step) || 0;
+  if (step <= 0 || atCap(ex)) return null;
+  let next = ex.reps + step;
+  if (ex.cap) next = Math.min(next, ex.cap);
+  return round2(next);
 }
 
 // ==================== 每週結算 ====================
@@ -228,12 +195,15 @@ function rollover() {
     const ups = {};
     for (const ex of sortedExercises(t)) {
       const s = summary.perEx[ex.id];
-      const step = Number(ex.step) || 0;
-      if (!s.total || s.done < s.total || step <= 0 || atCap(ex)) continue;
-      let next = ex.reps + step;
-      if (ex.cap) next = Math.min(next, ex.cap);
-      next = Math.round(next * 100) / 100;
-      ups[ex.id] = { name: ex.name, unit: ex.unit, from: ex.reps, to: next };
+      const next = nextReps(ex);
+      if (!s.total || s.done < s.total || next === null) continue;
+      ups[ex.id] = {
+        icon: ex.icon || DEFAULT_ICON,
+        name: ex.name,
+        unit: ex.unit,
+        from: ex.reps,
+        to: next,
+      };
       t.exercises[ex.id].reps = next;
     }
     if (summary.total > 0) {
@@ -242,7 +212,6 @@ function rollover() {
         done: summary.done,
         total: summary.total,
         clear: summary.clear,
-        xp: summary.clear ? XP_WEEK : 0,
         ups,
       };
     }
@@ -251,28 +220,72 @@ function rollover() {
   }).catch((error) => console.error("訓練週結算失敗:", error));
 }
 
-// ==================== 今日畫面 ====================
+// ==================== 本週畫面 ====================
 
-function questHtml(ex, date, today) {
-  const done = isLogged(data, date, ex.id);
-  const late = date < today;
-  const dayName = DAY_NAMES[(parseIso(date).getDay() + 6) % 7];
-  let hint = "";
-  if (late) hint = `週${dayName}`;
-  else if (atCap(ex)) hint = "已達上限";
-  else if (ex.step > 0) hint = `達標 +${num(ex.step)}`;
+function cardHtml(ex, wk, today) {
+  const dates = scheduledDates(ex, wk);
+  const isToday = dates.includes(today);
+  const doneToday = isToday && isLogged(data, today, ex.id);
+  const allDone =
+    dates.length > 0 && dates.every((date) => isLogged(data, date, ex.id));
+  const hasMiss = dates.some(
+    (date) => date < today && !isLogged(data, date, ex.id)
+  );
+
+  const pills = dates
+    .map((date) => {
+      let state = "todo";
+      if (isLogged(data, date, ex.id)) state = "done";
+      else if (date < today) state = "miss";
+      else if (date === today) state = "today";
+      const name = DAY_NAMES[(parseIso(date).getDay() + 6) % 7];
+      return `<button class="train-pill is-${state}" data-ex="${ex.id}" data-date="${date}"${
+        state === "todo" ? " disabled" : ""
+      }>${name}</button>`;
+    })
+    .join("");
+
+  const next = nextReps(ex);
+  let nextHtml = "";
+  if (next !== null) {
+    nextHtml = `<span class="train-next${allDone ? " is-on" : ""}">⬆ ${num(next)}</span>`;
+  } else if (atCap(ex)) {
+    nextHtml = `<span class="train-next is-on">🏁</span>`;
+  }
+
+  let state = "is-rest";
+  if (doneToday) state = "is-done";
+  else if (isToday) state = "is-today";
+  else if (hasMiss) state = "is-miss";
+
   return `
-    <button class="train-quest${done ? " is-done" : ""}" data-ex="${ex.id}" data-date="${date}">
-      <span class="train-quest-main">
-        <b>${escapeHtml(ex.name)}</b>
-        <small>${targetText(ex)}${hint ? ` · ${hint}` : ""}</small>
-      </span>
-      <span class="train-check">${done ? "✓" : ""}</span>
-    </button>`;
+    <article class="train-card ${state}">
+      <button class="train-card-main" data-edit="${ex.id}">
+        <span class="train-ico">${escapeHtml(ex.icon || DEFAULT_ICON)}</span>
+        <span class="train-card-text">
+          <small>${escapeHtml(ex.name)}</small>
+          <b>${num(ex.reps)}<i>${ex.unit}</i>${ex.sets > 1 ? `× ${ex.sets}` : ""}</b>
+        </span>
+      </button>
+      ${
+        isToday
+          ? `<button class="train-check" data-ex="${ex.id}" data-date="${today}">${
+              doneToday ? "✓" : ""
+            }</button>`
+          : ""
+      }
+      <div class="train-card-foot">
+        <div class="train-pills">${pills}</div>
+        ${nextHtml}
+      </div>
+    </article>`;
 }
 
 function render() {
   if (!user || page.classList.contains("hidden")) return;
+  const today = todayIso();
+  const wk = weekStart(today);
+  title.textContent = `${shortDate(wk)} – ${shortDate(addDays(wk, 6))}`;
   if (!loaded) {
     body.innerHTML = "";
     return;
@@ -282,17 +295,17 @@ function render() {
   if (!exercises.length) {
     body.innerHTML = `
       <div class="train-empty">
-        <p>還沒有課表</p>
-        <button class="train-primary" data-action="add">＋ 新增動作</button>
+        <span>🏋️</span>
+        <button data-action="add" title="新增">＋</button>
       </div>`;
     return;
   }
 
-  const today = todayIso();
-  const wk = weekStart(today);
   const summary = weekSummary(data, wk);
-  const info = levelInfo(totalXp(data, wk));
   const streak = streakWeeks(data, wk);
+  const percent = summary.total
+    ? Math.round((summary.done / summary.total) * 100)
+    : 0;
 
   // 每天的格子
   const dayCells = DAY_NAMES.map((name, i) => {
@@ -305,96 +318,50 @@ function render() {
       if (isLogged(data, date, ex.id)) done += 1;
     }
     let state = "todo";
-    let mark = `${done}/${total}`;
-    if (!total) {
-      state = "rest";
-      mark = "·";
-    } else if (done === total) {
-      state = "done";
-      mark = "✓";
-    } else if (date < today) {
-      state = "miss";
-    }
+    if (!total) state = "rest";
+    else if (done === total) state = "done";
+    else if (date < today) state = "miss";
     const isToday = date === today ? " is-today" : "";
-    return `<div class="train-day is-${state}${isToday}"><span>${name}</span><b>${mark}</b></div>`;
+    const fill = total ? Math.round((done / total) * 100) : 0;
+    return `<div class="train-day is-${state}${isToday}"><span>${name}</span><i class="train-dot" style="--p:${fill}">${
+      state === "done" ? "✓" : ""
+    }</i></div>`;
   }).join("");
 
   // 上週結算結果
   let banner = "";
   const last = data.weeks && data.weeks[addDays(wk, -7)];
   if (last) {
-    const ups = Object.values(last.ups || {});
-    if (ups.length) {
-      banner = `<div class="train-banner is-up">${ups
-        .map(
-          (u) =>
-            `<span>⬆ ${escapeHtml(u.name)} ${num(u.from)} → ${num(u.to)} ${u.unit}</span>`
-        )
-        .join("")}</div>`;
-    } else if (!last.clear) {
-      banner = `<div class="train-banner">上週未達標，維持原量</div>`;
-    }
+    const chips = Object.values(last.ups || {}).map(
+      (u) =>
+        `<span class="is-up">${escapeHtml(u.icon || "⬆")} ${num(u.from)} → ${num(u.to)}</span>`
+    );
+    if (!last.clear) chips.push(`<span>上週 ${last.done}/${last.total}</span>`);
+    if (chips.length) banner = `<div class="train-banner">${chips.join("")}</div>`;
   }
 
-  const todayQuests = exercises.filter((ex) =>
-    scheduledDates(ex, wk).includes(today)
-  );
-  const makeups = [];
-  for (const ex of exercises) {
-    for (const date of scheduledDates(ex, wk)) {
-      if (date < today && !isLogged(data, date, ex.id)) makeups.push({ ex, date });
-    }
-  }
-  makeups.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
-  let todayHtml;
-  if (todayQuests.length) {
-    todayHtml = todayQuests.map((ex) => questHtml(ex, today, today)).join("");
-  } else {
-    let next = "";
-    for (let i = 1; i <= 7 && !next; i++) {
-      const date = addDays(today, i);
-      const dayIndex = (parseIso(date).getDay() + 6) % 7;
-      if (exercises.some((ex) => String(ex.days).includes(String(dayIndex)))) {
-        next = `下次：週${DAY_NAMES[dayIndex]}`;
-      }
-    }
-    todayHtml = `<div class="train-rest">今天休息${next ? `<small>${next}</small>` : ""}</div>`;
-  }
+  // 今天要做的排前面
+  const isToday = (ex) => scheduledDates(ex, wk).includes(today);
+  const ordered = [
+    ...exercises.filter(isToday),
+    ...exercises.filter((ex) => !isToday(ex)),
+  ];
 
   body.innerHTML = `
-    <section class="train-hud">
-      <div class="train-rank" data-rank="${info.rank}">${info.rank}</div>
-      <div class="train-hud-main">
-        <div class="train-hud-row">
-          <span class="train-lv">Lv.${info.lv}</span>
-          <span class="train-streak${streak ? " is-on" : ""}">🔥 ${streak} 週</span>
-        </div>
-        <div class="train-xpbar"><i style="width:${Math.round((info.cur / info.need) * 100)}%"></i></div>
-        <div class="train-xptext">${info.cur} / ${info.need} XP</div>
-      </div>
-    </section>
-
     <section class="train-week">
-      <div class="train-week-days">${dayCells}</div>
-      <div class="train-week-total${summary.clear ? " is-clear" : ""}">
-        本週 ${summary.done} / ${summary.total}${summary.clear ? " 達標" : ""}
+      <div class="train-ring${summary.clear ? " is-clear" : ""}" style="--p:${percent}">
+        <span>${summary.done}<small>/${summary.total}</small></span>
+      </div>
+      <div class="train-week-side">
+        <div class="train-week-days">${dayCells}</div>
+        <div class="train-streak${streak ? " is-on" : ""}">🔥 ${streak}</div>
       </div>
     </section>
-
     ${banner}
-
-    <h3 class="train-h">今日任務</h3>
-    <div class="train-quests">${todayHtml}</div>
-
-    ${
-      makeups.length
-        ? `<h3 class="train-h">補課</h3>
-           <div class="train-quests">${makeups
-             .map(({ ex, date }) => questHtml(ex, date, today))
-             .join("")}</div>`
-        : ""
-    }
+    ${exercises.some(isToday) ? "" : `<div class="train-rest">😴</div>`}
+    <div class="train-cards">${ordered
+      .map((ex) => cardHtml(ex, wk, today))
+      .join("")}</div>
   `;
 }
 
@@ -405,17 +372,7 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.add("hidden"), 1800);
 }
 
-function showLevelUp(info, rankChanged) {
-  levelUp.innerHTML = `
-    <div class="train-levelup-box">
-      <small>${rankChanged ? "RANK UP" : "LEVEL UP"}</small>
-      <b>${rankChanged ? `${info.rank} 級` : `Lv.${info.lv}`}</b>
-    </div>`;
-  levelUp.classList.remove("hidden");
-  setTimeout(() => levelUp.classList.add("hidden"), 1800);
-}
-
-async function toggleQuest(exId, date) {
+async function toggleDone(exId, date) {
   const ex = data.exercises && data.exercises[exId];
   if (!ex) return;
   const path = `users/${user}/train/log/${date}/${exId}`;
@@ -425,17 +382,13 @@ async function toggleQuest(exId, date) {
       await remove(ref(db, path));
       return;
     }
-    const late = date < todayIso();
-    const xp = late ? XP_LATE : XP_QUEST;
     celebrateUntil = Date.now() + 3000;
-    showToast(`+${xp} XP`);
     await set(ref(db, path), {
       name: ex.name,
       unit: ex.unit,
       reps: ex.reps,
       sets: ex.sets,
-      xp,
-      late,
+      late: date < todayIso(),
       ts: Date.now(),
     });
   } catch (error) {
@@ -444,33 +397,15 @@ async function toggleQuest(exId, date) {
   }
 }
 
-// ==================== 課表 ====================
+// ==================== 新增／編輯動作 ====================
 
-function renderPlan() {
-  const exercises = sortedExercises(data);
-  planList.innerHTML = exercises.length
-    ? exercises
-        .map((ex) => {
-          const days = [...String(ex.days)]
-            .sort()
-            .map((ch) => DAY_NAMES[Number(ch)])
-            .join("");
-          const step = ex.step > 0 ? ` · 每週 +${num(ex.step)}` : "";
-          const cap = ex.cap ? ` · 上限 ${num(ex.cap)}` : "";
-          return `
-            <button class="train-plan-item" data-id="${ex.id}">
-              <b>${escapeHtml(ex.name)}</b>
-              <small>${days} · ${targetText(ex)}${step}${cap}</small>
-              <em>累計 ${num(volumeOf(data, ex.id))} ${ex.unit}</em>
-            </button>`;
-        })
-        .join("")
-    : `<p class="train-plan-empty">還沒有動作</p>`;
-}
-
-function openPlan() {
-  renderPlan();
-  planSheet.classList.remove("hidden");
+function renderFormIcons() {
+  iconBox.innerHTML = ICONS.map(
+    (icon) =>
+      `<button type="button" class="train-chip${
+        icon === formIcon ? " is-on" : ""
+      }" data-icon="${icon}">${icon}</button>`
+  ).join("");
 }
 
 function renderFormDays() {
@@ -485,7 +420,7 @@ function renderFormDays() {
 function openEdit(id) {
   editingId = id || null;
   const ex = id ? data.exercises[id] : null;
-  editTitle.textContent = ex ? "編輯動作" : "新增動作";
+  formIcon = ex ? ex.icon || DEFAULT_ICON : DEFAULT_ICON;
   nameInput.value = ex ? ex.name : "";
   formDays = ex ? String(ex.days) : "024";
   repsInput.value = ex ? ex.reps : 10;
@@ -494,7 +429,8 @@ function openEdit(id) {
   stepInput.value = ex ? ex.step : 2;
   capInput.value = ex && ex.cap ? ex.cap : "";
   formError.textContent = "";
-  deleteBtn.classList.toggle("hidden", !ex);
+  deleteBtn.classList.toggle("is-off", !ex);
+  renderFormIcons();
   renderFormDays();
   editSheet.classList.remove("hidden");
 }
@@ -511,7 +447,7 @@ async function saveExercise() {
   const step = Number(stepInput.value) || 0;
   const cap = Number(capInput.value) || 0;
 
-  if (!name) return (formError.textContent = "請輸入動作");
+  if (!name) return (formError.textContent = "請輸入名稱");
   if (!formDays) return (formError.textContent = "請選星期");
   if (!(reps > 0)) return (formError.textContent = "每組要大於 0");
   if (!(sets >= 1)) return (formError.textContent = "組數至少 1");
@@ -522,6 +458,7 @@ async function saveExercise() {
   const old = editingId ? data.exercises[editingId] : null;
   const id = editingId || `e${Date.now().toString(36)}`;
   const exercise = {
+    icon: formIcon,
     name,
     unit: unitSelect.value,
     days: [...formDays].sort().join(""),
@@ -548,7 +485,7 @@ async function saveExercise() {
 
 async function deleteExercise() {
   if (!editingId) return;
-  if (!confirm("刪除這個動作？紀錄與經驗值會保留")) return;
+  if (!confirm("刪除？")) return;
   try {
     await remove(ref(db, `users/${user}/train/exercises/${editingId}`));
     closeEdit();
@@ -581,22 +518,14 @@ function onData(snapshot) {
   data = snapshot.exists() ? snapshot.val() : {};
   loaded = true;
 
-  const wk = weekStart(todayIso());
-  const info = levelInfo(totalXp(data, wk));
-  const clear = weekSummary(data, wk).clear;
-  if (Date.now() < celebrateUntil) {
-    if (lastLevel && info.lv > lastLevel.lv) {
-      showLevelUp(info, info.rank !== lastLevel.rank);
-    } else if (lastWeekClear === false && clear) {
-      showToast(`本週達標 +${XP_WEEK} XP`);
-    }
+  const clear = weekSummary(data, weekStart(todayIso())).clear;
+  if (Date.now() < celebrateUntil && lastWeekClear === false && clear) {
+    showToast("🎉 本週完成");
   }
-  lastLevel = info;
   lastWeekClear = clear;
 
   rollover();
   render();
-  if (!planSheet.classList.contains("hidden")) renderPlan();
 }
 
 function start() {
@@ -622,10 +551,8 @@ function stop() {
   user = null;
   data = {};
   loaded = false;
-  lastLevel = null;
   lastWeekClear = null;
   page.classList.add("hidden");
-  planSheet.classList.add("hidden");
   editSheet.classList.add("hidden");
 }
 
@@ -633,37 +560,36 @@ function stop() {
 
 navBtn.addEventListener("click", () => setOpen(true));
 backBtn.addEventListener("click", () => setOpen(false));
-planBtn.addEventListener("click", openPlan);
 addBtn.addEventListener("click", () => openEdit(null));
+closeBtn.addEventListener("click", closeEdit);
 deleteBtn.addEventListener("click", deleteExercise);
 
 body.addEventListener("click", (e) => {
   if (e.target.closest('[data-action="add"]')) return openEdit(null);
-  const quest = e.target.closest(".train-quest");
-  if (quest) toggleQuest(quest.dataset.ex, quest.dataset.date);
+  const mark = e.target.closest("[data-date]");
+  if (mark) return toggleDone(mark.dataset.ex, mark.dataset.date);
+  const main = e.target.closest("[data-edit]");
+  if (main) openEdit(main.dataset.edit);
 });
 
-planList.addEventListener("click", (e) => {
-  const item = e.target.closest(".train-plan-item");
-  if (item) openEdit(item.dataset.id);
-});
-
-page.addEventListener("click", (e) => {
-  const close = e.target.closest("[data-close]");
-  if (!close) return;
-  if (close.dataset.close === "edit") closeEdit();
-  else planSheet.classList.add("hidden");
-});
-
-presetBox.innerHTML = PRESETS.map(
-  (p) =>
-    `<button type="button" class="train-chip" data-name="${p.name}" data-unit="${p.unit}">${p.name}</button>`
-).join("");
-presetBox.addEventListener("click", (e) => {
+iconBox.addEventListener("click", (e) => {
   const chip = e.target.closest(".train-chip");
   if (!chip) return;
-  nameInput.value = chip.dataset.name;
-  unitSelect.value = chip.dataset.unit;
+  formIcon = chip.dataset.icon;
+  // 名稱還沒自己打過，就跟著圖示換
+  const preset = PRESETS.find((p) => p.icon === formIcon);
+  const name = nameInput.value.trim();
+  if (preset && (!name || PRESETS.some((p) => p.name === name))) {
+    nameInput.value = preset.name;
+    unitSelect.value = preset.unit;
+    // 已經在練的動作不動它的量
+    if (!editingId) {
+      repsInput.value = preset.reps;
+      setsInput.value = preset.sets;
+      stepInput.value = preset.step;
+    }
+  }
+  renderFormIcons();
 });
 
 unitSelect.innerHTML = UNITS.map((u) => `<option value="${u}">${u}</option>`).join("");
@@ -674,6 +600,19 @@ daysBox.addEventListener("click", (e) => {
   const day = chip.dataset.day;
   formDays = formDays.includes(day) ? formDays.replace(day, "") : formDays + day;
   renderFormDays();
+});
+
+form.addEventListener("input", () => (formError.textContent = ""));
+
+// − ＋ 按鈕
+form.addEventListener("click", (e) => {
+  formError.textContent = "";
+  const btn = e.target.closest("[data-step]");
+  if (!btn) return;
+  const input = btn.parentElement.querySelector("input");
+  const min = Number(input.min) || 0;
+  const value = (Number(input.value) || 0) + Number(btn.dataset.step);
+  input.value = num(Math.max(min, value));
 });
 
 form.addEventListener("submit", (e) => {
